@@ -1,0 +1,77 @@
+:root {
+  /* Tenex: black, white, yellow */
+  --bg: #000000;
+  --surface: #0d0d0d;
+  --border: #2a2a2a;
+  --text: #ffffff;
+  --muted: #888888;
+  --accent: #f5c518;
+  --accent-hover: #ffd54f;
+  --danger: #f87171;
+  --success: #34d399;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent-hover);
+}
+
+/* Focus visible for keyboard nav – subtle so primary buttons don’t look overly bright */
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.why-btn:focus-visible {
+  outline-offset: 1px;
+}
+
+/* Bucket remove button hover */
+.bucket-remove-btn:hover {
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.15);
+}
+
+/* Mobile: sidebar as drawer */
+.sidebar-toggle {
+  display: none;
+}
+@media (max-width: 767px) {
+  .sidebar-toggle {
+    display: block;
+  }
+  .sidebar {
+    position: fixed !important;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-out;
+    box-shadow: none;
+  }
+  .sidebar.sidebar-drawer-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  }
+}

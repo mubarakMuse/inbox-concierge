@@ -6,6 +6,8 @@ import { authRouter } from './routes/auth.js';
 import { bucketsRouter } from './routes/buckets.js';
 import { inboxRouter } from './routes/inbox.js';
 
+import { logger } from './lib/logger.js';
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -22,12 +24,12 @@ app.get('/api/health', (_req, res) =>
 );
 
 app.use((err, _req, res, _next) => {
-  console.error(err);
+  logger.error('Request error', err);
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 export { app };
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+  app.listen(PORT, () => logger.info('Server listening', { port: PORT }));
 }

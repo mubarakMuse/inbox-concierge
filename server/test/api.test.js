@@ -17,4 +17,13 @@ describe('API', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('name');
   });
+
+  it('POST /api/buckets with name over 50 chars returns 400', async () => {
+    const res = await request(app)
+      .post('/api/buckets')
+      .set('Content-Type', 'application/json')
+      .send({ name: 'a'.repeat(51) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('50');
+  });
 });

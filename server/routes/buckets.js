@@ -4,10 +4,15 @@ import { getClassifications, saveClassifications } from '../lib/storage.js';
 
 export const bucketsRouter = Router();
 
+const BUCKET_NAME_MAX_LENGTH = 50;
+
 bucketsRouter.post('/', async (req, res) => {
-  const name = (req.body?.name || '').trim();
+  const name = (req.body?.name ?? '').trim();
   if (!name) {
     return res.status(400).json({ error: 'Bucket name is required' });
+  }
+  if (name.length > BUCKET_NAME_MAX_LENGTH) {
+    return res.status(400).json({ error: `Bucket name must be ${BUCKET_NAME_MAX_LENGTH} characters or less` });
   }
   try {
     const userId = req.userId || 'default';

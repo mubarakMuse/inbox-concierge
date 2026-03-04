@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireGmailAuth } from '../middleware/requireGmailAuth.js';
+import { rateLimitClassify } from '../middleware/rateLimit.js';
 import { fetchThreads } from '../lib/gmail.js';
 import { classifyAll } from '../lib/classification.js';
 import {
@@ -9,6 +10,7 @@ import {
   getThreadsCache,
   saveThreadsCache,
 } from '../lib/storage.js';
+import { logger } from '../lib/logger.js';
 
 export const inboxRouter = Router();
 
@@ -53,7 +55,7 @@ inboxRouter.get('/threads', requireGmailAuth, async (req, res) => {
   }
 });
 
-inboxRouter.post('/classify-progress', requireGmailAuth, async (req, res) => {
+inboxRouter.post('/classify-progress', requireGmailAuth, rateLimitClassify, async (req, res) => {
   const userId = req.userId || 'default';
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -74,7 +76,7 @@ inboxRouter.post('/classify-progress', requireGmailAuth, async (req, res) => {
     }
     const classifications = await classifyAll(threads, (progress) => {
       if (progress.partial) {
-        saveClassifications(progress.partial, userId).catch((e) => console.error('Save partial', e));
+        saveClassifications(progress.partial, userId).catch((e) => logger.error('Save partial classifications', e));
       }
       res.write(`data: ${JSON.stringify({ type: 'progress', done: progress.done, total: progress.total })}\n\n`);
       res.flush?.();
@@ -83,13 +85,13 @@ inboxRouter.post('/classify-progress', requireGmailAuth, async (req, res) => {
     const withReasons = threads.map((t) => ({ ...t, reason: classifications[t.id]?.reason }));
     res.write(`data: ${JSON.stringify({ type: 'done', threads: withReasons, classifications })}\n\n`);
   } catch (err) {
-    console.error('Classify progress error', err);
+    logger.error('Classify progress failed', err);
     res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
   }
   res.end();
 });
 
-inboxRouter.post('/recategorize', requireGmailAuth, async (req, res) => {
+inboxRouter.post('/recategorize', requireGmailAuth, rateLimitClassify, async (req, res) => {
   try {
     const userId = req.userId || 'default';
     const threads = await getThreadsCache(userId);
@@ -100,7 +102,7 @@ inboxRouter.post('/recategorize', requireGmailAuth, async (req, res) => {
     await saveClassifications(classifications, userId);
     res.json({ classifications, progress: { done: threads.length, total: threads.length } });
   } catch (err) {
-    console.error('Recategorize error', err);
+    logger.error('Recategorize failed', err);
     res.status(500).json({ error: err.message || 'Recategorization failed' });
   }
 });

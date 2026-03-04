@@ -1,24 +1,113 @@
 # Inbox Concierge
 
-Gmail inbox in buckets (Important, Can wait, Auto-archive, Newsletter, Other) via OpenAI classification. Connect Gmail, fetch last 200 threads, view by bucket, add custom buckets, recategorize.
+Gmail inbox organized into buckets (Important, Can wait, Auto-archive, Newsletter, Other) using OpenAI classification. Connect Gmail, fetch recent threads, view by bucket, add custom buckets, and recategorize.
 
 **Stack:** React (Vite), Node/Express, Google OAuth (Gmail + email), OpenAI, Supabase (Postgres).
 
-## Setup
+---
 
-1. `npm install` in repo root, then in `client/` and `server/`.
-2. Copy `server/.env.example` → `server/.env`. Set:
-   - Google OAuth: create [Cloud project](https://console.cloud.google.com/), enable Gmail API, OAuth 2.0 Web app, redirect `http://localhost:5001/api/auth/callback`. If app is in Testing, add test user under OAuth consent screen.
-   - OpenAI API key.
-   - Supabase: create project, run `server/db/schema.sql` in SQL Editor, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-3. Run: `cd server && npm run dev`; in another terminal `cd client && npm run dev`. Frontend :5173, backend :5001.
+## Clone the repo
 
-**Tests:** `cd server && npm test` (unit + API); `cd client && npm test` (React components).
+```bash
+git clone https://github.com/YOUR_USERNAME/inbox-concierge.git
+cd inbox-concierge
+```
 
-**Storage:** All data in Supabase; no local files. User = email from Google; signed cookie keys requests. Set `COOKIE_SECRET` in production.
+Then follow **How to run** below.
 
-**Reset data:** Run `server/db/cleanup.sql` in Supabase SQL Editor, then Disconnect and reconnect in the app.
+---
 
-**Layout:** `client/` = React app; `server/` = Express (auth, gmail, classification, buckets); `server/db/schema.sql` = tables.
+### 1. Install dependencies
 
-**Deploy:** Backend on [Railway](https://railway.app), frontend on [Netlify](https://netlify.com). See [DEPLOY.md](DEPLOY.md) for step-by-step and env vars.
+From the repo root:
+
+```bash
+cd client && npm install && cd ..
+cd server && npm install
+```
+
+### 2. Configure environment
+
+- Copy `server/.env.example` to `server/.env`.
+- Fill in (see **Environment variables** below):
+  - Google OAuth (Gmail API, OAuth 2.0 Web application)
+  - OpenAI API key
+  - Supabase URL and service role key
+  - `COOKIE_SECRET` for production
+
+### 3. Start the app
+
+**Terminal 1 – backend:**
+
+```bash
+cd server && npm run dev
+```
+
+Backend runs at **http://localhost:5001**.
+
+**Terminal 2 – frontend:**
+
+```bash
+cd client && npm run dev
+```
+
+Frontend runs at **http://localhost:5173**. Open that URL in the browser.
+
+---
+
+## How to test
+
+**Server (API + classification):**
+
+```bash
+cd server && npm test
+```
+
+**Client (React components):**
+
+```bash
+cd client && npm test
+```
+
+---
+
+## Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From [Google Cloud Console](https://console.cloud.google.com/): create a project, enable Gmail API, create OAuth 2.0 credentials (Web application). Set redirect URI to `http://localhost:5001/api/auth/callback`. If the app is in Testing, add test users in OAuth consent screen. |
+| `OPENAI_API_KEY` | From [OpenAI](https://platform.openai.com/api-keys). |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | From your [Supabase](https://supabase.com) project. Run `server/db/schema.sql` in the Supabase SQL Editor to create tables. |
+| `COOKIE_SECRET` | Random string for signing cookies; required in production. |
+| `NODE_ENV` | `development` (default) or `production`. |
+
+---
+
+## Pushing to GitHub
+
+The repo is ready to push. Secrets are ignored via `.gitignore` (`.env`, `server/.env`, etc.). Do **not** commit `.env` files.
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/inbox-concierge.git
+git branch -M main
+git push -u origin main
+```
+
+---
+
+## Project layout
+
+| Path | Description |
+|------|-------------|
+| `client/` | React (Vite) frontend |
+| `server/` | Express API: auth, Gmail, classification, buckets |
+| `server/db/schema.sql` | Supabase/Postgres table definitions |
+| `server/db/cleanup.sql` | Script to reset data (run in Supabase SQL Editor) |
+| `DEPLOY.md` | Deploy steps (e.g. Railway + Netlify) and production env vars |
+
+**Storage:** All data lives in Supabase; no local DB. Users are identified by Google email; a signed cookie authenticates API requests.
+
+**Reset data:** Run `server/db/cleanup.sql` in the Supabase SQL Editor, then use Disconnect in the app and sign in again.

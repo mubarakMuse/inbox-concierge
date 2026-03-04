@@ -2,8 +2,12 @@ import { Router } from 'express';
 import { getAuthUrl, setCredentialsFromCode, getAuthenticatedClient } from '../lib/auth.js';
 import { getStoredTokens, clearTokens, deleteAllUserData } from '../lib/storage.js';
 import { userIdFromCookie, setUserIdCookie, clearUserIdCookie } from '../middleware/userId.js';
+import { rateLimitAuth } from '../middleware/rateLimit.js';
+import { logger } from '../lib/logger.js';
 
 export const authRouter = Router();
+
+authRouter.use(rateLimitAuth);
 
 authRouter.get('/url', (_req, res) => {
   try {
@@ -25,7 +29,7 @@ authRouter.get('/callback', async (req, res) => {
     setUserIdCookie(res, userId);
     res.redirect(`${frontend}?auth=success`);
   } catch (err) {
-    console.error('Auth callback error', err);
+    logger.error('Auth callback failed', err);
     res.redirect(`${frontend}?auth=error`);
   }
 });
@@ -50,7 +54,7 @@ authRouter.post('/delete-all-data', userIdFromCookie, async (req, res) => {
     clearUserIdCookie(res);
     res.json({ ok: true });
   } catch (err) {
-    console.error('Delete all data error', err);
+    logger.error('Delete all data failed', err);
     res.status(500).json({ error: err.message || 'Failed to delete data' });
   }
 });

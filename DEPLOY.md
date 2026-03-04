@@ -4,6 +4,24 @@ Backend runs on **Railway**, frontend on **Netlify**. The frontend calls the Rai
 
 ---
 
+## Your deployment URLs
+
+Use these exact values for env vars:
+
+| Where | Variable | Value |
+|-------|----------|--------|
+| **Netlify** | `VITE_API_BASE` | `https://inbox-concierge-production.up.railway.app` |
+| **Railway** | `FRONTEND_URL` | `https://inbox-concierge.netlify.app` |
+| **Railway** | `OAUTH_REDIRECT_URI` | `https://inbox-concierge-production.up.railway.app/api/auth/callback` |
+
+- **Frontend:** [https://inbox-concierge.netlify.app](https://inbox-concierge.netlify.app)
+- **Backend:** [https://inbox-concierge-production.up.railway.app](https://inbox-concierge-production.up.railway.app)  
+  Health check: [https://inbox-concierge-production.up.railway.app/api/health](https://inbox-concierge-production.up.railway.app/api/health)
+
+Local dev uses port **5001** for the server (see `server/.env`); on Railway, `PORT` is set by Railway—you don’t need to set it unless you override.
+
+---
+
 ## 1. Deploy backend (Railway)
 
 1. **Create a Railway project** at [railway.app](https://railway.app). Connect your repo or push the code.

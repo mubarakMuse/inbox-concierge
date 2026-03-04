@@ -2,6 +2,20 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 const defaultFetchOpts = { credentials: 'include' };
 
+async function parseJson(res) {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    if (text.trim().startsWith('<!')) {
+      throw new Error(
+        'API returned a page instead of JSON. Set VITE_API_BASE to your Railway URL in Netlify env vars and trigger a new deploy.'
+      );
+    }
+    throw new Error('Invalid API response');
+  }
+  return res.json();
+}
+
 function throwApiError(res, data, fallback) {
   const e = new Error(data?.error || fallback);
   e.status = res.status;
@@ -10,14 +24,14 @@ function throwApiError(res, data, fallback) {
 
 export async function getAuthUrl() {
   const res = await fetch(`${API_BASE}/auth/url`);
-  const data = await res.json();
+  const data = await parseJson(res);
   if (!res.ok) throw new Error(data.error || 'Failed to get auth URL');
   return data.url;
 }
 
 export async function getAuthStatus() {
   const res = await fetch(`${API_BASE}/auth/status`, defaultFetchOpts);
-  const data = await res.json();
+  const data = await parseJson(res);
   return data;
 }
 
@@ -28,14 +42,14 @@ export async function disconnect() {
 
 export async function deleteAllMyData() {
   const res = await fetch(`${API_BASE}/auth/delete-all-data`, { method: 'POST', ...defaultFetchOpts });
-  const data = await res.json().catch(() => ({}));
+  const data = await parseJson(res).catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Failed to delete data');
   return data;
 }
 
 export async function getBucketsWithCounts() {
   const res = await fetch(`${API_BASE}/inbox/buckets`, defaultFetchOpts);
-  const data = await res.json();
+  const data = await parseJson(res);
   if (!res.ok) throwApiError(res, data, 'Failed to load buckets');
   return data;
 }
@@ -43,7 +57,7 @@ export async function getBucketsWithCounts() {
 export async function getThreads(bucketId) {
   const url = bucketId ? `${API_BASE}/inbox/threads?bucket_id=${encodeURIComponent(bucketId)}` : `${API_BASE}/inbox/threads`;
   const res = await fetch(url, defaultFetchOpts);
-  const data = await res.json();
+  const data = await parseJson(res);
   if (!res.ok) throwApiError(res, data, 'Failed to load threads');
   return data;
 }
@@ -56,7 +70,7 @@ export function classifyWithProgress(onProgress, onDone, onError) {
   })
     .then(async (res) => {
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await parseJson(res).catch(() => ({}));
         const err = new Error(data.error || res.statusText);
         err.status = res.status;
         throw err;
@@ -97,7 +111,7 @@ export function classifyWithProgress(onProgress, onDone, onError) {
 
 export async function recategorize() {
   const res = await fetch(`${API_BASE}/inbox/recategorize`, { method: 'POST', ...defaultFetchOpts });
-  const data = await res.json();
+  const data = await parseJson(res);
   if (!res.ok) throwApiError(res, data, 'Recategorization failed');
   return data;
 }
@@ -109,14 +123,14 @@ export async function createBucket(name) {
     body: JSON.stringify({ name }),
     ...defaultFetchOpts,
   });
-  const data = await res.json();
+  const data = await parseJson(res);
   if (!res.ok) throw new Error(data.error || 'Failed to create bucket');
   return data;
 }
 
 export async function deleteBucket(id) {
   const res = await fetch(`${API_BASE}/buckets/${encodeURIComponent(id)}`, { method: 'DELETE', ...defaultFetchOpts });
-  const data = await res.json();
+  const data = await parseJson(res);
   if (!res.ok) throw new Error(data.error || 'Failed to remove bucket');
   return data;
 }

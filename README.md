@@ -108,6 +108,8 @@ git push -u origin main
 | `server/db/cleanup.sql` | Script to reset data (run in Supabase SQL Editor) |
 | `DEPLOY.md` | Deploy steps (e.g. Railway + Netlify) and production env vars |
 
+For **code structure, LLM prompt design, and business-logic decisions** (buckets, auth, rate limits, storage), see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 **Storage:** All data lives in Supabase; no local DB. Users are identified by Google email; a signed cookie authenticates API requests.
 
 **Reset data:** Run `server/db/cleanup.sql` in the Supabase SQL Editor, then use Disconnect in the app and sign in again.

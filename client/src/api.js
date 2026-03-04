@@ -1,4 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+// When VITE_API_BASE is set (e.g. Railway URL), append /api so paths like /auth/url become /api/auth/url.
+const API_BASE = import.meta.env.VITE_API_BASE
+  ? `${String(import.meta.env.VITE_API_BASE).replace(/\/$/, '')}/api`
+  : '/api';
 
 const defaultFetchOpts = { credentials: 'include' };
 

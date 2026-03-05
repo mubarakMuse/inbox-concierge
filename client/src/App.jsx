@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- JSX uses these */
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { getAuthStatus } from './api';
 import Login from './pages/Login';

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import Inbox from './Inbox.jsx';
 
-vi.mock('../api', () => ({
+vi.mock('../api/index.js', () => ({
   getBucketsWithCounts: vi.fn(),
   getThreads: vi.fn(),
   classifyWithProgress: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('../api', () => ({
   deleteAllMyData: vi.fn(),
 }));
 
-const api = await import('../api');
+const api = await import('../api/index.js')
 
 describe('Inbox', () => {
   const defaultBuckets = [
@@ -110,52 +110,56 @@ describe('Inbox', () => {
   });
 
   it('shows add bucket form and submits new bucket name', async () => {
-    vi.mocked(api.createBucket).mockResolvedValue({ id: 'my-bucket', name: 'My Bucket', is_default: false });
-    vi.mocked(api.getBucketsWithCounts).mockResolvedValueOnce({ buckets: defaultBuckets, counts: {} });
-    render(<Inbox onDisconnect={() => {}} />);
+    vi.mocked(api.createBucket).mockResolvedValue({ id: 'my-bucket', name: 'My Bucket', is_default: false })
+    vi.mocked(api.getBucketsWithCounts).mockResolvedValueOnce({ buckets: defaultBuckets, counts: {} })
+    render(<Inbox onDisconnect={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/new bucket name/i)).toBeInTheDocument();
-    });
-    const input = screen.getByLabelText(/new bucket name/i);
-    const addBtn = screen.getByRole('button', { name: /add bucket and recategorize/i });
-    fireEvent.change(input, { target: { value: 'My Bucket' } });
-    expect(addBtn).not.toBeDisabled();
-    fireEvent.click(addBtn);
+      expect(screen.getByRole('button', { name: /^manage$/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^manage$/i }))
     await waitFor(() => {
-      expect(api.createBucket).toHaveBeenCalledWith('My Bucket');
-    });
-  });
+      expect(screen.getByPlaceholderText(/new bucket name/i)).toBeInTheDocument()
+    })
+    const input = screen.getByLabelText(/new bucket name/i)
+    const addBtn = screen.getByRole('button', { name: /add bucket and recategorize/i })
+    fireEvent.change(input, { target: { value: 'My Bucket' } })
+    expect(addBtn).not.toBeDisabled()
+    fireEvent.click(addBtn)
+    await waitFor(() => {
+      expect(api.createBucket).toHaveBeenCalledWith('My Bucket')
+    })
+  })
 
-  it('expands reason when Why? is clicked', async () => {
+  it('shows AI reason on thread card', async () => {
     vi.mocked(api.getThreads).mockResolvedValue({
       threads: [{ id: 't1', subject: 'Subj', snippet: '', reason: 'Because it is urgent' }],
       needClassify: false,
-    });
-    render(<Inbox onDisconnect={() => {}} />);
+    })
+    render(<Inbox onDisconnect={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /why this bucket/i })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: /why this bucket/i }));
-    await waitFor(() => {
-      expect(screen.getByText('Because it is urgent')).toBeInTheDocument();
-    });
-  });
+      expect(screen.getByText('Because it is urgent')).toBeInTheDocument()
+    })
+  })
 
   it('shows delete all data link and confirm flow', async () => {
-    vi.mocked(api.deleteAllMyData).mockResolvedValue({});
-    const onDisconnect = vi.fn();
-    render(<Inbox onDisconnect={onDisconnect} />);
+    vi.mocked(api.deleteAllMyData).mockResolvedValue({})
+    const onDisconnect = vi.fn()
+    render(<Inbox onDisconnect={onDisconnect} />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /delete all my data/i })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: /delete all my data/i }));
+      expect(screen.getByRole('button', { name: /^manage$/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^manage$/i }))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^delete all$/i })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: /^delete all$/i }));
+      expect(screen.getByRole('button', { name: /delete all my data/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /delete all my data/i }))
     await waitFor(() => {
-      expect(api.deleteAllMyData).toHaveBeenCalled();
-      expect(onDisconnect).toHaveBeenCalled();
-    });
-  });
+      expect(screen.getByRole('button', { name: /^delete all$/i })).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^delete all$/i }))
+    await waitFor(() => {
+      expect(api.deleteAllMyData).toHaveBeenCalled()
+      expect(onDisconnect).toHaveBeenCalled()
+    })
+  })
 });

@@ -35,9 +35,18 @@ authRouter.get('/callback', async (req, res) => {
 });
 
 authRouter.get('/status', userIdFromCookie, async (req, res) => {
-  const client = await getAuthenticatedClient(req.userId);
-  const tokens = await getStoredTokens(req.userId);
-  res.json({ connected: !!client, hasTokens: !!tokens });
+  try {
+    const client = await getAuthenticatedClient(req.userId);
+    const tokens = await getStoredTokens(req.userId);
+    res.json({ connected: !!client, hasTokens: !!tokens });
+  } catch (err) {
+    logger.error('Auth status failed', err);
+    res.status(503).json({
+      connected: false,
+      hasTokens: false,
+      error: err.message || 'Storage unavailable',
+    });
+  }
 });
 
 authRouter.post('/disconnect', userIdFromCookie, async (req, res) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as api from './api.js';
+import * as api from './api/index.js';
 
 describe('api', () => {
   const originalFetch = globalThis.fetch;

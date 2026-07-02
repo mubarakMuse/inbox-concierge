@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import App from './App.jsx';
 
-vi.mock('./api', () => ({
+vi.mock('./api/index.js', () => ({
   getAuthStatus: vi.fn(),
   getBucketsWithCounts: vi.fn().mockResolvedValue({ buckets: [], counts: {} }),
   getThreads: vi.fn().mockResolvedValue({ threads: [], needClassify: false }),
@@ -16,7 +16,7 @@ vi.mock('./api', () => ({
   recategorize: vi.fn(),
 }));
 
-const { getAuthStatus } = await import('./api');
+const { getAuthStatus } = await import('./api/index.js')
 
 describe('App', () => {
   beforeEach(() => {

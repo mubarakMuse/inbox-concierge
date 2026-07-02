@@ -1,4 +1,5 @@
-import { getAuthenticatedClient } from './auth.js';
+import { getAuthenticatedClient } from './auth.js'
+import { logger } from './logger.js'
 
 export async function fetchThreads(maxResults = 200, authClient) {
   const auth = authClient ?? await getAuthenticatedClient();
@@ -27,7 +28,7 @@ export async function fetchThreads(maxResults = 200, authClient) {
         (res.data.snippet || msg?.snippet || '').replace(/\s+/g, ' ').trim().slice(0, 500) || '';
       threads.push({ id, subject, snippet });
     } catch (e) {
-      console.warn('Failed to fetch thread', id, e.message);
+      logger.error('Failed to fetch thread', e, { threadId: id })
     }
   }
   return threads;

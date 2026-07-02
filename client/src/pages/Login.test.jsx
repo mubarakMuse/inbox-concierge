@@ -3,11 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Login from './Login';
 
-vi.mock('../api', () => ({
+vi.mock('../api/index.js', () => ({
   getAuthUrl: vi.fn(),
-}));
+}))
 
-const { getAuthUrl } = await import('../api');
+const { getAuthUrl } = await import('../api/index.js')
 
 describe('Login', () => {
   beforeEach(() => {
@@ -21,9 +21,9 @@ describe('Login', () => {
   });
 
   it('renders subtitle', () => {
-    render(<Login onConnect={() => {}} />);
-    expect(screen.getByText(/group your gmail into buckets with ai/i)).toBeInTheDocument();
-  });
+    render(<Login onConnect={() => {}} />)
+    expect(screen.getByText(/stop drowning in email/i)).toBeInTheDocument()
+  })
 
   it('calls getAuthUrl when Connect Gmail is clicked', async () => {
     const hrefSetter = vi.fn();

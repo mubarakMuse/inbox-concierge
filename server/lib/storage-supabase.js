@@ -1,9 +1,20 @@
 import { getSupabase } from './supabase.js';
 
-const DEFAULT_USER_ID = 'default';
+const DEFAULT_USER_ID = 'default'
 
 function uid(userId) {
-  return userId ?? DEFAULT_USER_ID;
+  return userId ?? DEFAULT_USER_ID
+}
+
+function storageError(error) {
+  const message = error?.message || 'Storage error'
+  if (message.includes('fetch failed')) {
+    return new Error('Cannot reach Supabase. Check SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and that your project is active.')
+  }
+  if (message === 'Supabase not configured') {
+    return new Error('Supabase not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in server/.env')
+  }
+  return new Error(message)
 }
 
 const defaultBuckets = [
@@ -154,7 +165,7 @@ export async function getStoredTokens(userId = DEFAULT_USER_ID) {
   if (!supabase) throw new Error('Supabase not configured');
   const u = uid(userId);
   const { data: row, error } = await supabase.from('tokens').select('tokens').eq('user_id', u).single();
-  if (error && error.code !== 'PGRST116') throw new Error(error.message);
+  if (error && error.code !== 'PGRST116') throw storageError(error);
   return row?.tokens ?? null;
 }
 

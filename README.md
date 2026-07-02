@@ -102,6 +102,10 @@ git push -u origin main
 
 | Path | Description |
 |------|-------------|
+| `client/src/api/` | API client split by domain (auth, inbox, buckets) |
+| `client/src/components/` | Reusable UI and inbox components |
+| `client/src/hooks/` | React hooks (`useInbox`) |
+| `client/src/pages/` | Route pages (Login, Inbox) |
 | `client/` | React (Vite) frontend |
 | `server/` | Express API: auth, Gmail, classification, buckets |
 | `server/db/schema.sql` | Supabase/Postgres table definitions |

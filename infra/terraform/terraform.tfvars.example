@@ -1,0 +1,29 @@
+project_name = "inbox-concierge"
+aws_region   = "us-east-1"
+
+# Leave false until images are pushed to ECR
+create_apprunner = false
+create_lambda    = false
+
+api_image_tag    = "latest"
+worker_image_tag = "latest"
+
+# Optional custom domain (not wired in lean starter)
+frontend_domain = ""
+
+# After CloudFront + App Runner exist, set these and re-apply
+frontend_url       = "" # e.g. https://dxxxxx.cloudfront.net
+oauth_redirect_uri = "" # e.g. https://xxxxx.us-east-1.awsapprunner.com/api/auth/callback
+
+# RDS Postgres
+db_username             = "inbox"
+db_password             = "replace-with-strong-password"
+db_name                 = "inbox"
+db_instance_class       = "db.t4g.micro"
+db_publicly_accessible  = false # set true briefly to run schema.sql from your laptop
+
+google_client_id     = "YOUR_GOOGLE_CLIENT_ID"
+google_client_secret = "YOUR_GOOGLE_CLIENT_SECRET"
+openai_api_key       = "YOUR_OPENAI_API_KEY"
+cookie_secret        = "replace-with-openssl-rand-hex-32"
+openai_model         = "gpt-4o-mini"

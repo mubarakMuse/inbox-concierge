@@ -1,7 +1,7 @@
-import { apiUrl, defaultFetchOpts, parseJson } from './client.js'
+import { apiFetch, apiUrl, defaultFetchOpts, parseJson } from './client.js'
 
 export async function createBucket(name) {
-  const res = await fetch(apiUrl('/buckets'), {
+  const res = await apiFetch(apiUrl('/buckets'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -13,7 +13,7 @@ export async function createBucket(name) {
 }
 
 export async function deleteBucket(id) {
-  const res = await fetch(apiUrl(`/buckets/${encodeURIComponent(id)}`), {
+  const res = await apiFetch(apiUrl(`/buckets/${encodeURIComponent(id)}`), {
     method: 'DELETE',
     ...defaultFetchOpts,
   })

@@ -1,7 +1,9 @@
-import { apiUrl, defaultFetchOpts, parseJson, throwApiError } from './client.js'
+import { apiFetch, apiUrl, defaultFetchOpts, parseJson, throwApiError } from './client.js'
+
+const JOB_POLL_MS = 800
 
 export async function getBucketsWithCounts() {
-  const res = await fetch(apiUrl('/inbox/buckets'), defaultFetchOpts)
+  const res = await apiFetch(apiUrl('/inbox/buckets'), defaultFetchOpts)
   const data = await parseJson(res)
   if (!res.ok) throwApiError(res, data, 'Failed to load buckets')
   return data
@@ -11,14 +13,41 @@ export async function getThreads(bucketId) {
   const path = bucketId
     ? `/inbox/threads?bucket_id=${encodeURIComponent(bucketId)}`
     : '/inbox/threads'
-  const res = await fetch(apiUrl(path), defaultFetchOpts)
+  const res = await apiFetch(apiUrl(path), defaultFetchOpts)
   const data = await parseJson(res)
   if (!res.ok) throwApiError(res, data, 'Failed to load threads')
   return data
 }
 
+export async function getJob(jobId) {
+  const res = await apiFetch(apiUrl(`/inbox/jobs/${encodeURIComponent(jobId)}`), defaultFetchOpts)
+  const data = await parseJson(res)
+  if (!res.ok) throwApiError(res, data, 'Failed to load job')
+  return data
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const waitForJob = async (jobId) => {
+  while (true) {
+    const job = await getJob(jobId)
+    if (job.status === 'completed') {
+      return {
+        jobId,
+        classifications: job.result?.classifications ?? {},
+        threads: job.result?.threads,
+        progress: { done: job.done, total: job.total },
+      }
+    }
+    if (job.status === 'failed') {
+      throw new Error(job.error || 'Job failed')
+    }
+    await sleep(JOB_POLL_MS)
+  }
+}
+
 export function classifyWithProgress(onProgress, onDone, onError) {
-  fetch(apiUrl('/inbox/classify-progress'), {
+  apiFetch(apiUrl('/inbox/classify-progress'), {
     method: 'POST',
     headers: { Accept: 'text/event-stream' },
     credentials: 'include',
@@ -64,8 +93,9 @@ export function classifyWithProgress(onProgress, onDone, onError) {
 }
 
 export async function recategorize() {
-  const res = await fetch(apiUrl('/inbox/recategorize'), { method: 'POST', ...defaultFetchOpts })
+  const res = await apiFetch(apiUrl('/inbox/recategorize'), { method: 'POST', ...defaultFetchOpts })
   const data = await parseJson(res)
   if (!res.ok) throwApiError(res, data, 'Recategorization failed')
-  return data
+  if (!data.jobId) throw new Error('Missing jobId from recategorize')
+  return waitForJob(data.jobId)
 }

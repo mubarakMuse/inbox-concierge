@@ -1,34 +1,29 @@
 export const BUCKET_META = {
   important: {
-    label: 'Important',
     icon: '⚡',
     color: '#ef4444',
     bg: '#fef2f2',
     description: 'Urgent threads that need your attention',
   },
   'can-wait': {
-    label: 'Can wait',
     icon: '🕐',
     color: '#3b82f6',
     bg: '#eff6ff',
     description: 'Read later, no rush',
   },
   'auto-archive': {
-    label: 'Auto-archive',
     icon: '📦',
     color: '#64748b',
     bg: '#f1f5f9',
     description: 'Receipts, alerts, low-priority noise',
   },
   newsletter: {
-    label: 'Newsletter',
     icon: '📰',
     color: '#8b5cf6',
     bg: '#f5f3ff',
     description: 'Subscriptions, digests, marketing',
   },
   other: {
-    label: 'Other',
     icon: '📁',
     color: '#0ea5e9',
     bg: '#f0f9ff',

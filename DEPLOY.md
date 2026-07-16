@@ -1,6 +1,8 @@
-# Deploy Inbox Concierge to Railway + Netlify
+# Deploy Inbox Concierge (legacy Railway + Netlify)
 
-Backend runs on **Railway**, frontend on **Netlify**. The frontend calls the Railway API URL; cookies work cross-origin (SameSite=None; Secure when FRONTEND_URL is set to your Netlify URL).
+> **Preferred lean production path:** [DEPLOY-AWS.md](./DEPLOY-AWS.md) — App Runner + SQS/Lambda + S3/CloudFront + Supabase.
+
+Backend on **Railway**, frontend on **Netlify**. The frontend calls the Railway API URL; cookies work cross-origin (SameSite=None; Secure when FRONTEND_URL is set to your Netlify URL).
 
 ---
 
@@ -19,6 +21,8 @@ Use these exact values for env vars:
   Health check: [https://inbox-concierge-production.up.railway.app/api/health](https://inbox-concierge-production.up.railway.app/api/health)
 
 Local dev uses port **5001** for the server (see `server/.env`); on Railway, `PORT` is set by Railway—you don’t need to set it unless you override.
+
+For local classify jobs without AWS, keep `QUEUE_DRIVER=local` (default).
 
 ---
 
@@ -44,6 +48,7 @@ Local dev uses port **5001** for the server (see `server/.env`); on Railway, `PO
    | `SUPABASE_URL` | Supabase project URL |
    | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
    | `COOKIE_SECRET` | Strong random string (e.g. `openssl rand -hex 32`) |
+   | `QUEUE_DRIVER` | `local` (Railway runs jobs in-process) |
 
 4. **Google OAuth**  
    In [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → your OAuth 2.0 Client:
@@ -82,7 +87,7 @@ Local dev uses port **5001** for the server (see `server/.env`); on Railway, `PO
 - [ ] Railway: root directory = `server`, all env vars set, `OAUTH_REDIRECT_URI` uses Railway URL.
 - [ ] Google OAuth: redirect URI and JS origins include Railway and Netlify URLs.
 - [ ] Netlify: `VITE_API_BASE` = Railway URL (no trailing slash).
-- [ ] Supabase: `server/db/schema.sql` has been run in the SQL Editor.
+- [ ] Supabase: `server/db/schema.sql` (or `migrations/001_jobs.sql`) has been run in the SQL Editor.
 - [ ] Cookie works: after “Connect Gmail” you’re redirected to Netlify and the app shows you as connected (cross-origin cookie with SameSite=None; Secure).
 
 ---

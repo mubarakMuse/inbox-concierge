@@ -146,15 +146,35 @@ describe('api', () => {
   });
 
   describe('recategorize', () => {
-    it('returns classifications on success', async () => {
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ classifications: { t1: { bucket_id: 'important', reason: 'x' } }, progress: { done: 1, total: 1 } }),
-        headers: new Headers({ 'content-type': 'application/json' }),
-      });
+    it('starts job then polls until completed', async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ jobId: 'job-1' }),
+          headers: new Headers({ 'content-type': 'application/json' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'job-1',
+              status: 'completed',
+              done: 1,
+              total: 1,
+              result: { classifications: { t1: { bucket_id: 'important', reason: 'x' } } },
+            }),
+          headers: new Headers({ 'content-type': 'application/json' }),
+        });
       const data = await api.recategorize();
-      expect(data.classifications).toBeDefined();
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/inbox/recategorize'), expect.objectContaining({ method: 'POST' }));
+      expect(data.classifications).toEqual({ t1: { bucket_id: 'important', reason: 'x' } });
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/inbox/recategorize'),
+        expect.objectContaining({ method: 'POST' })
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/inbox/jobs/job-1'),
+        expect.anything()
+      );
     });
   });
 

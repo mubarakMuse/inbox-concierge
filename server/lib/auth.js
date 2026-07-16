@@ -1,26 +1,21 @@
 import { google } from 'googleapis';
 import { getStoredTokens, saveTokens, clearTokens } from './storage.js';
 
-let oauth2Client = null;
-
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/userinfo.email',
 ];
 
-function getOAuth2Client() {
-  if (!oauth2Client) {
-    oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.OAUTH_REDIRECT_URI
-    );
-  }
-  return oauth2Client;
+export function createOAuth2Client() {
+  return new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.OAUTH_REDIRECT_URI
+  );
 }
 
 export function getAuthUrl() {
-  const client = getOAuth2Client();
+  const client = createOAuth2Client();
   return client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -29,7 +24,7 @@ export function getAuthUrl() {
 }
 
 export async function setCredentialsFromCode(code) {
-  const client = getOAuth2Client();
+  const client = createOAuth2Client();
   const { tokens } = await client.getToken(code);
   client.setCredentials(tokens);
   const oauth2 = google.oauth2({ version: 'v2', auth: client });
@@ -40,7 +35,7 @@ export async function setCredentialsFromCode(code) {
 }
 
 export async function getAuthenticatedClient(userId) {
-  const client = getOAuth2Client();
+  const client = createOAuth2Client();
   const stored = await getStoredTokens(userId);
   if (!stored) return null;
   client.setCredentials(stored);

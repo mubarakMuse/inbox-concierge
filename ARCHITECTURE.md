@@ -8,10 +8,10 @@ This document explains how the code is structured and why certain business and t
 
 | Layer | Path | Role |
 |-------|------|------|
-| **Frontend** | `client/` | React (Vite), single-page app. `src/api.js` is the only place that talks to the backend; all routes go through it. |
+| **Frontend** | `client/` | React (Vite). All HTTP calls go through `client/src/api/`. |
 | **Backend** | `server/` | Express app. Routes under `/api/auth`, `/api/buckets`, `/api/inbox`; shared middleware and libs. |
-| **Storage** | `server/lib/storage.js` | Thin facade that re-exports `storage-supabase.js`. All persistence goes through this so the backend could be swapped to another DB by replacing the impl. |
-| **DB** | `server/db/` | `schema.sql` (tables), `cleanup.sql` (reset). Run in Supabase SQL Editor. |
+| **Storage** | `server/lib/storage.js` | Facade selecting `storage-pg.js` (default) or `storage-supabase.js` via `STORAGE_DRIVER`. |
+| **DB** | `server/db/` | `schema.sql` (tables), `cleanup.sql` (reset). Local: `docker compose up -d`. Prod: RDS (`psql "$DATABASE_URL" -f server/db/schema.sql`). |
 
 ---
 
@@ -70,7 +70,7 @@ This document explains how the code is structured and why certain business and t
 
 ## 6. Buckets and input validation
 
-**Where:** `server/routes/buckets.js`, `server/db/schema.sql`, `server/lib/storage-supabase.js`.
+**Where:** `server/routes/buckets.js`, `server/db/schema.sql`, `server/lib/storage-pg.js` (default).
 
 **Choices:**
 
@@ -80,29 +80,32 @@ This document explains how the code is structured and why certain business and t
 
 ---
 
-## 7. Classification flow and SSE
+## 7. Classification flow (async jobs + SSE)
 
-**Where:** `server/routes/inbox.js` (`POST /classify-progress`), `client/src/api.js` (`classifyWithProgress`).
+**Where:** `server/lib/runClassifyJob.js`, `server/lib/queue.js`, `server/routes/inbox.js`, `client/src/api/inbox.js`.
 
 **Choices:**
 
-- **Streaming:** Response is `text/event-stream`. Server sends `{ type: 'progress', done, total }` as batches complete, then `{ type: 'done', threads, classifications }` or `{ type: 'error', error }`. Client uses `fetch` + `ReadableStream` and parses `data: {...}` lines so the UI can show progress without polling.
-- **Thread source:** If the user has no threads in cache, we fetch from Gmail (200), save to cache, then classify. So “Classify” always works on the same cached thread list until the next full fetch.
-- **Partial saves:** After each batch we call `saveClassifications(progress.partial, userId)` so if the stream drops or the user leaves, we still persist what was classified so far.
+- **Jobs table:** Each classify/recategorize run is a row in `jobs` (`queued` → `running` → `completed`/`failed`) with `done`/`total` progress and optional `result` JSON.
+- **Queue drivers:** `QUEUE_DRIVER=local` (default) runs `runClassifyJob` via `setImmediate` in the API process. `QUEUE_DRIVER=sqs` sends `{ jobId, userId, type }` to SQS; a Lambda container (`server/lambda/handler.cjs`) consumes the queue and runs the same worker.
+- **SSE compat:** `POST /classify-progress` still returns `text/event-stream` for the client. It enqueues a classify job, polls `getJob` ~every 500ms, and emits `{ type: 'progress' }`, then `{ type: 'done', threads, classifications }` or `{ type: 'error' }`.
+- **REST:** `POST /classify` and `POST /recategorize` return `{ jobId }` immediately; `GET /jobs/:jobId` returns the job (owner-only). The client polls for recategorize.
+- **Thread source:** Classify fetches Gmail (200) when cache is empty; recategorize requires a non-empty threads cache (job fails otherwise).
+- **Partial saves:** The worker still calls `saveClassifications` after each batch so progress survives disconnects.
 
 ---
 
 ## 8. Recategorize
 
-**Where:** `server/routes/inbox.js` – `POST /recategorize`.
+**Where:** `server/routes/inbox.js` – `POST /recategorize`; client polls `GET /api/inbox/jobs/:id`.
 
-**Choice:** Re-runs `classifyAll(threads, null, userId)` on the **cached** thread list (no new Gmail fetch), overwrites all classifications, returns the new map. Same rate limit as classify. Used when the user wants to re-run the model (e.g. after adding a bucket or changing rules).
+**Choice:** Enqueues a `recategorize` job that re-runs `classifyAll` on the **cached** thread list (no new Gmail fetch). Same rate limit as classify. Used when the user wants to re-run the model (e.g. after adding a bucket).
 
 ---
 
 ## 9. Storage abstraction and schema
 
-**Where:** `server/lib/storage.js` (facade), `server/lib/storage-supabase.js` (Supabase), `server/db/schema.sql`.
+**Where:** `server/lib/storage.js` (facade), `server/lib/storage-pg.js` (default Postgres via `pg`), `server/lib/storage-supabase.js` (optional), `server/db/schema.sql`.
 
 **Tables:**
 
@@ -110,8 +113,9 @@ This document explains how the code is structured and why certain business and t
 - **classifications** – `(user_id, thread_id, bucket_id, reason, updated_at)`. One bucket per thread per user.
 - **threads_cache** – `(user_id, threads JSONB)`. One row per user; array of `{ id, subject, snippet }`.
 - **tokens** – `(user_id, tokens JSONB)`. OAuth access/refresh tokens.
+- **jobs** – `(id, user_id, type, status, done, total, error, result)`. Async classify/recategorize work.
 
-**Choice:** No local DB or file storage; all state in Supabase. The app does not use Supabase Auth; it uses Google OAuth and stores tokens itself. RLS is in schema but commented out; in production you’d set `app.user_id` and enable policies.
+**Choice:** Default storage is Postgres (`STORAGE_DRIVER=pg`) with `DATABASE_URL`. Local Docker Compose; production lean AWS uses private RDS. Optional `STORAGE_DRIVER=supabase` remains for legacy. Auth is Google OAuth with tokens stored in the DB (not Supabase Auth).
 
 ---
 
@@ -128,7 +132,7 @@ This document explains how the code is structured and why certain business and t
 
 ## 11. Client API and backend URL
 
-**Where:** `client/src/api.js`.
+**Where:** `client/src/api/` (`client.js`, `auth.js`, `inbox.js`, `buckets.js`).
 
 **Choices:**
 
@@ -147,6 +151,7 @@ This document explains how the code is structured and why certain business and t
 | **Auth** | userId = email; signed cookie; Gmail required for classify/threads/recategorize. |
 | **Rate limits** | Auth 30/15min; classify 10/15min per user. |
 | **Buckets** | Default five + custom; name trimmed, max 50 chars; delete moves to Other. |
-| **Classification** | SSE progress; partial saves per batch; recategorize re-runs on cache. |
-| **Storage** | Facade → Supabase only; buckets, classifications, threads_cache, tokens. |
+| **Classification** | Async jobs (local or SQS/Lambda); SSE polls job progress; partial saves. |
+| **Storage** | Facade → Postgres (`pg`) by default; optional Supabase driver; buckets, classifications, threads_cache, tokens, jobs. |
 | **Logging** | Structured JSON; no secrets or stack in logs. |
+| **AWS lean** | App Runner API + SQS/Lambda worker + S3/CloudFront SPA + private RDS Postgres. |

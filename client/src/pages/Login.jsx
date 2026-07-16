@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getAuthUrl } from '../api/index.js'
+import { getAuthStatus, getAuthUrl } from '../api/index.js'
 import { Button } from '../components/ui/index.js'
 
 const STEPS = [
@@ -10,21 +10,48 @@ const STEPS = [
 
 export default function Login({ onConnect }) {
   const [connecting, setConnecting] = useState(false)
+  const [authError, setAuthError] = useState(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('auth') !== 'success') return
-    onConnect()
-    window.history.replaceState({}, '', '/')
+
+    let cancelled = false
+
+    const handleAuthSuccess = async () => {
+      try {
+        const status = await getAuthStatus()
+        if (cancelled) return
+        if (status?.connected) {
+          onConnect()
+        } else {
+          setAuthError(
+            status?.error ||
+              'Sign-in did not complete. Tokens were not saved — try connecting Gmail again.'
+          )
+        }
+      } catch (err) {
+        if (cancelled) return
+        setAuthError(err.message || 'Could not verify sign-in. Is the API running?')
+      } finally {
+        window.history.replaceState({}, '', '/')
+      }
+    }
+
+    handleAuthSuccess()
+    return () => {
+      cancelled = true
+    }
   }, [onConnect])
 
   const handleConnect = async () => {
     setConnecting(true)
+    setAuthError(null)
     try {
       const url = await getAuthUrl()
       window.location.href = url
     } catch (err) {
-      alert(err.message || 'Failed to start sign-in')
+      setAuthError(err.message || 'Failed to start sign-in')
       setConnecting(false)
     }
   }
@@ -39,6 +66,11 @@ export default function Login({ onConnect }) {
             Stop drowning in email. We fetch your latest threads and sort them into clear buckets —
             so you open Gmail knowing exactly where to look.
           </p>
+          {authError ? (
+            <p className="login-error" role="alert" aria-live="assertive">
+              {authError}
+            </p>
+          ) : null}
           <Button
             variant="primary"
             className="login-btn"

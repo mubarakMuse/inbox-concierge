@@ -1,5 +1,7 @@
--- Inbox Concierge – Supabase schema
--- Run this in the Supabase SQL Editor (Dashboard → SQL Editor → New query).
+-- Inbox Concierge – Postgres schema
+-- Local: applied by docker-compose on first boot, or:
+--   psql "$DATABASE_URL" -f server/db/schema.sql
+-- RDS: from a host with VPC access (or briefly db_publicly_accessible=true).
 
 -- Buckets: default + custom per user
 CREATE TABLE IF NOT EXISTS buckets (
@@ -44,9 +46,25 @@ CREATE TABLE IF NOT EXISTS tokens (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Async classify / recategorize jobs (App Runner enqueues; Lambda or local worker runs)
+CREATE TABLE IF NOT EXISTS jobs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued',
+  done INT NOT NULL DEFAULT 0,
+  total INT NOT NULL DEFAULT 0,
+  error TEXT,
+  result JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS jobs_user_id_idx ON jobs (user_id);
+
 -- RLS (uncomment when using real user_id from auth):
 -- ALTER TABLE buckets ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE classifications ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE threads_cache ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE tokens ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "Users can manage own buckets" ON buckets FOR ALL USING (user_id = current_setting('app.user_id', true));

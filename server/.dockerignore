@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.env
+.env.*
+!.env.example
+test
+coverage
+.git
+.gitignore
+*.md
+.DS_Store
+.prettierrc.json
+eslint.config.js
+vitest.config.js
+railway.json

@@ -91,12 +91,7 @@ export default function Inbox({ onDisconnect }) {
       </main>
 
       {inbox.classifying && inbox.progress.total > 0 && (
-        <ClassifyExperience
-          done={inbox.progress.done}
-          total={inbox.progress.total}
-          buckets={inbox.buckets}
-          counts={inbox.counts}
-        />
+        <ClassifyExperience done={inbox.progress.done} total={inbox.progress.total} />
       )}
     </div>
   )

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
+import { requireAuth } from '../middleware/requireAuth.js';
 import { requireGmailAuth } from '../middleware/requireGmailAuth.js';
 import { rateLimitClassify } from '../middleware/rateLimit.js';
 import {
@@ -8,25 +9,29 @@ import {
   getThreadsCache,
   createJob,
   getJob,
+  getActiveJob,
 } from '../lib/storage.js';
 import { enqueueJob } from '../lib/queue.js';
-import { loadJobDonePayload } from '../lib/runClassifyJob.js';
 import { logger } from '../lib/logger.js';
 
 export const inboxRouter = Router();
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+inboxRouter.use(requireAuth);
 
-async function startJob(userId, type) {
+async function startJob(userId, type, payload = {}) {
+  const existing = await getActiveJob(userId);
+  if (existing) {
+    return { job: existing, reused: true };
+  }
   const id = randomUUID();
-  const job = await createJob({ id, userId, type });
+  const job = await createJob({ id, userId, type, payload });
   await enqueueJob({ jobId: id, userId, type });
-  return job;
+  return { job, reused: false };
 }
 
 inboxRouter.get('/buckets', async (req, res) => {
   try {
-    const userId = req.userId || 'default';
+    const userId = req.userId;
     const buckets = await getBuckets(userId);
     const classifications = await getClassifications(userId);
     const counts = {};
@@ -42,7 +47,7 @@ inboxRouter.get('/buckets', async (req, res) => {
 
 inboxRouter.get('/threads', requireGmailAuth, async (req, res) => {
   try {
-    const userId = req.userId || 'default';
+    const userId = req.userId;
     const { bucket_id } = req.query;
     const classifications = await getClassifications(userId);
     let threads = await getThreadsCache(userId);
@@ -67,77 +72,19 @@ inboxRouter.get('/threads', requireGmailAuth, async (req, res) => {
 
 inboxRouter.post('/classify', requireGmailAuth, rateLimitClassify, async (req, res) => {
   try {
-    const userId = req.userId || 'default';
-    const job = await startJob(userId, 'classify');
-    res.json({ jobId: job.id });
+    const userId = req.userId;
+    const forceRefresh = !!req.body?.forceRefresh;
+    const { job, reused } = await startJob(userId, 'classify', { forceRefresh });
+    res.json({ jobId: job.id, reused });
   } catch (err) {
     logger.error('Classify enqueue failed', err);
     res.status(500).json({ error: err.message || 'Failed to start classify job' });
   }
 });
 
-inboxRouter.post('/classify-progress', requireGmailAuth, rateLimitClassify, async (req, res) => {
-  const userId = req.userId || 'default';
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  let closed = false;
-  req.on('close', () => {
-    closed = true;
-  });
-
-  const writeEvent = (payload) => {
-    if (closed) return;
-    res.write(`data: ${JSON.stringify(payload)}\n\n`);
-    res.flush?.();
-  };
-
-  try {
-    const job = await startJob(userId, 'classify');
-    let lastDone = -1;
-    let lastTotal = -1;
-
-    while (!closed) {
-      const current = await getJob(job.id);
-      if (!current) {
-        writeEvent({ type: 'error', error: 'Job not found' });
-        break;
-      }
-
-      if (current.done !== lastDone || current.total !== lastTotal) {
-        lastDone = current.done;
-        lastTotal = current.total;
-        if (current.total > 0 || current.status === 'running') {
-          writeEvent({ type: 'progress', done: current.done, total: current.total });
-        }
-      }
-
-      if (current.status === 'completed') {
-        const payload = await loadJobDonePayload(current);
-        writeEvent({ type: 'done', threads: payload.threads, classifications: payload.classifications });
-        break;
-      }
-
-      if (current.status === 'failed') {
-        writeEvent({ type: 'error', error: current.error || 'Classification failed' });
-        break;
-      }
-
-      await sleep(500);
-    }
-  } catch (err) {
-    logger.error('Classify progress failed', err);
-    writeEvent({ type: 'error', error: err.message });
-  }
-
-  if (!closed) res.end();
-});
-
 inboxRouter.get('/jobs/:jobId', async (req, res) => {
   try {
-    const userId = req.userId || 'default';
+    const userId = req.userId;
     const job = await getJob(req.params.jobId);
     if (!job || job.user_id !== userId) {
       return res.status(404).json({ error: 'Job not found' });
@@ -150,9 +97,9 @@ inboxRouter.get('/jobs/:jobId', async (req, res) => {
 
 inboxRouter.post('/recategorize', requireGmailAuth, rateLimitClassify, async (req, res) => {
   try {
-    const userId = req.userId || 'default';
-    const job = await startJob(userId, 'recategorize');
-    res.json({ jobId: job.id });
+    const userId = req.userId;
+    const { job, reused } = await startJob(userId, 'recategorize');
+    res.json({ jobId: job.id, reused });
   } catch (err) {
     logger.error('Recategorize enqueue failed', err);
     res.status(500).json({ error: err.message || 'Recategorization failed' });

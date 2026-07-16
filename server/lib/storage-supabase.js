@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase.js';
 import { slugify } from './slugify.js';
+import { encryptTokens, decryptTokens } from './tokenCrypto.js';
 
 const DEFAULT_USER_ID = 'default'
 
@@ -153,15 +154,18 @@ export async function getStoredTokens(userId = DEFAULT_USER_ID) {
   const u = uid(userId);
   const { data: row, error } = await supabase.from('tokens').select('tokens').eq('user_id', u).single();
   if (error && error.code !== 'PGRST116') throw storageError(error);
-  return row?.tokens ?? null;
+  const raw = row?.tokens ?? null;
+  if (raw == null) return null;
+  return decryptTokens(raw);
 }
 
 export async function saveTokens(tokens, userId = DEFAULT_USER_ID) {
   const supabase = getSupabase();
   if (!supabase) throw new Error('Supabase not configured');
   const u = uid(userId);
+  const toStore = encryptTokens(tokens);
   const { error } = await supabase.from('tokens').upsert(
-    { user_id: u, tokens, updated_at: new Date().toISOString() },
+    { user_id: u, tokens: toStore, updated_at: new Date().toISOString() },
     { onConflict: 'user_id' }
   );
   if (error) throw new Error(error.message);
@@ -175,7 +179,7 @@ export async function clearTokens(userId = DEFAULT_USER_ID) {
   if (error) throw new Error(error.message);
 }
 
-export async function createJob({ id, userId, type }) {
+export async function createJob({ id, userId, type, payload = {} }) {
   const supabase = getSupabase();
   if (!supabase) throw new Error('Supabase not configured');
   const u = uid(userId);
@@ -188,12 +192,29 @@ export async function createJob({ id, userId, type }) {
     total: 0,
     error: null,
     result: null,
+    payload: payload || {},
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await supabase.from('jobs').insert(row).select().single();
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function getActiveJob(userId = DEFAULT_USER_ID) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase not configured');
+  const u = uid(userId);
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('user_id', u)
+    .in('status', ['queued', 'running'])
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
 }
 
 export async function getJob(id) {

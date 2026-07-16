@@ -28,9 +28,10 @@ export async function getJob(jobId) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const waitForJob = async (jobId) => {
+const waitForJob = async (jobId, onProgress) => {
   while (true) {
     const job = await getJob(jobId)
+    if (onProgress) onProgress({ done: job.done ?? 0, total: job.total ?? 0 })
     if (job.status === 'completed') {
       return {
         jobId,
@@ -46,50 +47,39 @@ const waitForJob = async (jobId) => {
   }
 }
 
-export function classifyWithProgress(onProgress, onDone, onError) {
-  apiFetch(apiUrl('/inbox/classify-progress'), {
-    method: 'POST',
-    headers: { Accept: 'text/event-stream' },
-    credentials: 'include',
-  })
-    .then(async (res) => {
+/** Start classify job and poll GET /jobs/:id. Keeps callback API for useInbox. */
+export function classifyWithProgress(onProgress, onDone, onError, options = {}) {
+  const forceRefresh = options.forceRefresh !== false
+
+  ;(async () => {
+    try {
+      const res = await apiFetch(apiUrl('/inbox/classify'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ forceRefresh }),
+      })
+      const data = await parseJson(res).catch(() => ({}))
       if (!res.ok) {
-        const data = await parseJson(res).catch(() => ({}))
         const err = new Error(data.error || res.statusText)
         err.status = res.status
         throw err
       }
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-      const read = () => {
-        reader.read().then(({ done, value }) => {
-          if (done) {
-            if (onDone) onDone()
-            return
-          }
-          buf += decoder.decode(value, { stream: true })
-          const lines = buf.split('\n')
-          buf = lines.pop() || ''
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue
-            try {
-              const payload = JSON.parse(line.slice(6))
-              if (payload.type === 'progress' && onProgress) onProgress(payload)
-              if (payload.type === 'done' && onDone) onDone(payload)
-              if (payload.type === 'error' && onError) onError(payload.error)
-            } catch {
-              /* ignore malformed SSE line */
-            }
-          }
-          read()
-        })
+      if (!data.jobId) throw new Error('Missing jobId from classify')
+
+      const result = await waitForJob(data.jobId, onProgress)
+      let threads = result.threads
+      let classifications = result.classifications
+      if (!threads) {
+        const loaded = await getThreads()
+        threads = loaded.threads
+        classifications = loaded.classifications ?? classifications
       }
-      read()
-    })
-    .catch((err) => {
+      if (onDone) onDone({ threads, classifications, type: 'done' })
+    } catch (err) {
       if (onError) onError(err.message, err.status)
-    })
+    }
+  })()
 }
 
 export async function recategorize() {

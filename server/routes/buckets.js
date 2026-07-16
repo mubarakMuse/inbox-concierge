@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { addBucket, removeBucket } from '../lib/storage.js';
 import { getClassifications, saveClassifications } from '../lib/storage.js';
+import { requireAuth } from '../middleware/requireAuth.js';
 
 export const bucketsRouter = Router();
 
 const BUCKET_NAME_MAX_LENGTH = 50;
+
+bucketsRouter.use(requireAuth);
 
 bucketsRouter.post('/', async (req, res) => {
   const name = (req.body?.name ?? '').trim();
@@ -15,8 +18,7 @@ bucketsRouter.post('/', async (req, res) => {
     return res.status(400).json({ error: `Bucket name must be ${BUCKET_NAME_MAX_LENGTH} characters or less` });
   }
   try {
-    const userId = req.userId || 'default';
-    const bucket = await addBucket(name, userId);
+    const bucket = await addBucket(name, req.userId);
     res.status(201).json(bucket);
   } catch (err) {
     if (err.message?.includes('already exists')) {
@@ -28,7 +30,7 @@ bucketsRouter.post('/', async (req, res) => {
 
 bucketsRouter.delete('/:id', async (req, res) => {
   const { id } = req.params;
-  const userId = req.userId || 'default';
+  const userId = req.userId;
   try {
     await removeBucket(id, userId);
     const classifications = await getClassifications(userId);

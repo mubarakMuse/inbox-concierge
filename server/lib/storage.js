@@ -55,6 +55,10 @@ export async function createJob(params) {
   return getImpl().createJob(params)
 }
 
+export async function getActiveJob(userId) {
+  return getImpl().getActiveJob(userId)
+}
+
 export async function getJob(id) {
   return getImpl().getJob(id)
 }

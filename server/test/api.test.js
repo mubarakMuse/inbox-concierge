@@ -18,7 +18,7 @@ describe('API', () => {
   it('GET /api/health returns 200 and storage type', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true, storage: 'pg', queue: 'local' });
+    expect(res.body).toEqual({ ok: true, storage: 'postgres', queue: 'local' });
   });
 
   describe('POST /api/buckets', () => {

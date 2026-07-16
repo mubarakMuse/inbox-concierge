@@ -1,13 +1,11 @@
-# Deploy Inbox Concierge on lean AWS
-
-Cheap production shape:
+# Deploy Inbox Concierge on AWS
 
 | Piece | Service |
 |-------|---------|
-| API | **App Runner** (Docker, Express) |
-| Classify / recategorize jobs | **SQS + Lambda** (container image) |
-| SPA | **S3 + CloudFront** |
-| Database | **RDS Postgres 16** (private, single-AZ, `db.t4g.micro`) |
+| API | App Runner (Docker, Express) |
+| Classify / recategorize jobs | SQS + Lambda (container image) |
+| SPA | S3 + CloudFront |
+| Database | RDS Postgres 16 (private, single-AZ, `db.t4g.micro`) |
 
 Local and CI use `QUEUE_DRIVER=local` so jobs run in-process without AWS. Local DB: Docker Compose + `server/db/schema.sql`.
 
@@ -25,9 +23,9 @@ docker compose up -d
 Set in `server/.env`:
 
 ```
-STORAGE_DRIVER=pg
 DATABASE_URL=postgres://postgres:postgres@localhost:5434/inbox_concierge
 DATABASE_SSL=false
+QUEUE_DRIVER=local
 ```
 
 ### RDS (after Terraform creates the instance)
@@ -35,14 +33,11 @@ DATABASE_SSL=false
 RDS is private by default. Apply schema from a host that can reach the VPC, **or** briefly set `db_publicly_accessible = true` in `terraform.tfvars`, apply, migrate, then set it back to `false`:
 
 ```bash
-# From a host with VPC access, or temporarily set db_publicly_accessible=true
 export DATABASE_URL="postgresql://inbox:PASSWORD@RDS_ADDRESS:5432/inbox?sslmode=require"
 psql "$DATABASE_URL" -f server/db/schema.sql
 ```
 
 Alternatives: SSM bastion / CloudShell jump host, or a one-off App Runner/ECS task with the schema file.
-
-For existing Supabase projects migrating data, export/import tables yourself; the app schema is in `server/db/schema.sql` (includes `jobs`).
 
 ---
 
@@ -124,7 +119,6 @@ Terraform sets:
 | `PORT` | `8080` (API only) |
 | `QUEUE_DRIVER` | `sqs` |
 | `SQS_QUEUE_URL` | Terraform `sqs_url` |
-| `STORAGE_DRIVER` | `pg` |
 | `DATABASE_URL` | RDS connection string (`sslmode=require`) |
 | `DATABASE_SSL` | `true` |
 | `FRONTEND_URL` | CloudFront URL (API) |
@@ -136,13 +130,10 @@ App Runner uses a VPC connector (private subnets) to reach RDS. Lambda runs in t
 ### Local / .env
 
 ```
-STORAGE_DRIVER=pg
 DATABASE_URL=postgres://postgres:postgres@localhost:5434/inbox_concierge
 DATABASE_SSL=false
 QUEUE_DRIVER=local
 ```
-
-Optional legacy: `STORAGE_DRIVER=supabase` with `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`.
 
 ---
 
@@ -150,15 +141,9 @@ Optional legacy: `STORAGE_DRIVER=supabase` with `SUPABASE_URL` / `SUPABASE_SERVI
 
 `.github/workflows/deploy-aws.yml`:
 
-- Runs server + client tests on push to `main` / `feat/aws-lean-production`
+- Runs server + client tests on push to `main`
 - Always builds Docker images
 - Pushes to ECR / syncs S3 when AWS secrets are configured
 - Optional `workflow_dispatch` input `apply_infra` runs Terraform apply
 
 Required GitHub secrets (for full deploy): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `ECR_API_REPOSITORY`, `ECR_WORKER_REPOSITORY`, `SPA_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`, `DB_PASSWORD`, plus Google/OpenAI/`COOKIE_SECRET` for Terraform. Repo vars: `VITE_API_BASE`, optional `FRONTEND_URL`, `OAUTH_REDIRECT_URI`, `DB_USERNAME`, `DB_NAME`, `DB_INSTANCE_CLASS`.
-
----
-
-## Railway + Netlify (legacy)
-
-See [DEPLOY.md](./DEPLOY.md) for the previous Railway + Netlify path.

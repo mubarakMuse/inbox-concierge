@@ -13,7 +13,7 @@ dist/
 build/
 *.tsbuildinfo
 
-# Data (legacy / local; app uses Supabase only)
+# Local data directory (unused; app uses Postgres)
 server/data/
 
 # Logs and debug

@@ -1,5 +1,5 @@
 -- Inbox Concierge – reset data for testing
--- Run in Supabase SQL Editor when you want to clear all user data and re-test the flow.
+-- Run against Postgres (local Docker or RDS) to clear all user data and re-test the flow.
 -- Tables are not dropped; only data is deleted. Run schema.sql first if tables don't exist.
 
 -- Delete in dependency order (child-like data first; no FKs currently, but order avoids confusion)

@@ -20,7 +20,11 @@ app.use('/api/buckets', bucketsRouter);
 app.use('/api/inbox', inboxRouter);
 
 app.get('/api/health', (_req, res) =>
-  res.json({ ok: true, storage: 'supabase' })
+  res.json({
+    ok: true,
+    storage: (process.env.STORAGE_DRIVER || 'pg').toLowerCase(),
+    queue: process.env.QUEUE_DRIVER || 'local',
+  })
 );
 
 app.use((err, _req, res, _next) => {

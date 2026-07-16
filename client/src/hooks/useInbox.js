@@ -31,8 +31,6 @@ export function useInbox(onDisconnect) {
   const [newBucketName, setNewBucketName] = useState('')
   const [creatingBucket, setCreatingBucket] = useState(false)
   const [error, setError] = useState(null)
-  const [expandedReasonId, setExpandedReasonId] = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [manageOpen, setManageOpen] = useState(false)
   const [classifyComplete, setClassifyComplete] = useState(false)
   const [removingBucketId, setRemovingBucketId] = useState(null)
@@ -191,8 +189,6 @@ export function useInbox(onDisconnect) {
     newBucketName,
     creatingBucket,
     error,
-    expandedReasonId,
-    sidebarOpen,
     manageOpen,
     classifyComplete,
     removingBucketId,
@@ -200,14 +196,9 @@ export function useInbox(onDisconnect) {
     deletingData,
     setError,
     setNewBucketName,
-    setSidebarOpen,
     setManageOpen,
-    setExpandedReasonId,
     setShowDeleteConfirm,
-    setSelectedBucketId: (id) => {
-      setSelectedBucketId(id)
-      setSidebarOpen(false)
-    },
+    setSelectedBucketId,
     handleFetchAndClassify,
     handleRecategorize,
     handleCreateBucket,

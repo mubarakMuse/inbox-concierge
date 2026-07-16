@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.js';
+import { slugify } from './slugify.js';
 
 const DEFAULT_USER_ID = 'default'
 
@@ -54,23 +55,9 @@ async function seedDefaultBuckets(supabase, userId) {
   if (error) throw new Error(error.message);
 }
 
-export async function saveBuckets(buckets, userId = DEFAULT_USER_ID) {
-  const supabase = getSupabase();
-  if (!supabase) throw new Error('Supabase not configured');
-  const u = uid(userId);
-  const toInsert = buckets.map((b) => ({
-    user_id: u,
-    id: b.id,
-    name: b.name,
-    is_default: !!b.is_default,
-  }));
-  const { error } = await supabase.from('buckets').upsert(toInsert, { onConflict: 'user_id,id' });
-  if (error) throw new Error(error.message);
-}
-
 export async function addBucket(name, userId = DEFAULT_USER_ID) {
   const buckets = await getBuckets(userId);
-  const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const id = slugify(name);
   if (buckets.some((b) => b.id === id || b.name === name)) {
     throw new Error('Bucket with this name already exists');
   }
@@ -188,11 +175,54 @@ export async function clearTokens(userId = DEFAULT_USER_ID) {
   if (error) throw new Error(error.message);
 }
 
+export async function createJob({ id, userId, type }) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase not configured');
+  const u = uid(userId);
+  const row = {
+    id,
+    user_id: u,
+    type,
+    status: 'queued',
+    done: 0,
+    total: 0,
+    error: null,
+    result: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabase.from('jobs').insert(row).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function getJob(id) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase not configured');
+  const { data, error } = await supabase.from('jobs').select('*').eq('id', id).single();
+  if (error && error.code !== 'PGRST116') throw new Error(error.message);
+  return data ?? null;
+}
+
+export async function updateJob(id, patch = {}) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase not configured');
+  const updates = { updated_at: new Date().toISOString() };
+  if (patch.status !== undefined) updates.status = patch.status;
+  if (patch.done !== undefined) updates.done = patch.done;
+  if (patch.total !== undefined) updates.total = patch.total;
+  if (patch.error !== undefined) updates.error = patch.error;
+  if (patch.result !== undefined) updates.result = patch.result;
+  const { data, error } = await supabase.from('jobs').update(updates).eq('id', id).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function deleteAllUserData(userId = DEFAULT_USER_ID) {
   const supabase = getSupabase();
   if (!supabase) throw new Error('Supabase not configured');
   const u = uid(userId);
-  const tables = ['classifications', 'buckets', 'threads_cache', 'tokens'];
+  const tables = ['classifications', 'buckets', 'threads_cache', 'tokens', 'jobs'];
   for (const table of tables) {
     const { error } = await supabase.from(table).delete().eq('user_id', u);
     if (error) throw new Error(error.message);

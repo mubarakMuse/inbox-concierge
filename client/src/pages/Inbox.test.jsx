@@ -28,7 +28,7 @@ describe('Inbox', () => {
     vi.mocked(api.disconnect).mockResolvedValue(undefined);
   });
 
-  it('renders sidebar with buckets and main area', async () => {
+  it('renders bucket bar and main area', async () => {
     const onDisconnect = vi.fn();
     render(<Inbox onDisconnect={onDisconnect} />);
     await waitFor(() => {

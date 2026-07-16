@@ -1,6 +1,6 @@
 import { getClassifyStage } from '../../utils/buckets.js'
 
-export default function ClassifyExperience({ done, total, buckets, counts }) {
+export default function ClassifyExperience({ done, total }) {
   const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0
   const stage = getClassifyStage(done, total)
 
@@ -23,15 +23,6 @@ export default function ClassifyExperience({ done, total, buckets, counts }) {
         <h2 id="classify-title" className="classify-title">Sorting your inbox</h2>
         <p className="classify-stage" aria-live="polite">{stage}</p>
         <p className="classify-count">{done} of {total || '…'} threads</p>
-        {buckets.length > 0 && (
-          <div className="classify-live-counts" aria-label="Live bucket counts">
-            {buckets.slice(0, 5).map((b) => (
-              <span key={b.id} className="classify-live-chip">
-                {(counts[b.id] ?? 0)}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )

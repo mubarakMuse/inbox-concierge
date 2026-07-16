@@ -1,50 +1,64 @@
-// Supabase-only storage. Run schema.sql once. userId defaults to 'default'.
-import * as supabaseStorage from './storage-supabase.js';
+// Storage facade. Default driver is Postgres (pg); set STORAGE_DRIVER=supabase for legacy.
+import * as pgStorage from './storage-pg.js'
+import * as supabaseStorage from './storage-supabase.js'
 
-export async function getBuckets(userId) {
-  return supabaseStorage.getBuckets(userId);
+function getImpl() {
+  const driver = (process.env.STORAGE_DRIVER || 'pg').toLowerCase()
+  return driver === 'supabase' ? supabaseStorage : pgStorage
 }
 
-export async function saveBuckets(buckets, userId) {
-  return supabaseStorage.saveBuckets(buckets, userId);
+export async function getBuckets(userId) {
+  return getImpl().getBuckets(userId)
 }
 
 export async function addBucket(name, userId) {
-  return supabaseStorage.addBucket(name, userId);
+  return getImpl().addBucket(name, userId)
 }
 
 export async function removeBucket(bucketId, userId) {
-  return supabaseStorage.removeBucket(bucketId, userId);
+  return getImpl().removeBucket(bucketId, userId)
 }
 
 export async function getClassifications(userId) {
-  return supabaseStorage.getClassifications(userId);
+  return getImpl().getClassifications(userId)
 }
 
 export async function saveClassifications(classifications, userId) {
-  return supabaseStorage.saveClassifications(classifications, userId);
+  return getImpl().saveClassifications(classifications, userId)
 }
 
 export async function getThreadsCache(userId) {
-  return supabaseStorage.getThreadsCache(userId);
+  return getImpl().getThreadsCache(userId)
 }
 
 export async function saveThreadsCache(threads, userId) {
-  return supabaseStorage.saveThreadsCache(threads, userId);
+  return getImpl().saveThreadsCache(threads, userId)
 }
 
 export async function getStoredTokens(userId) {
-  return supabaseStorage.getStoredTokens(userId);
+  return getImpl().getStoredTokens(userId)
 }
 
 export async function saveTokens(tokens, userId) {
-  return supabaseStorage.saveTokens(tokens, userId);
+  return getImpl().saveTokens(tokens, userId)
 }
 
 export async function clearTokens(userId) {
-  return supabaseStorage.clearTokens(userId);
+  return getImpl().clearTokens(userId)
 }
 
 export async function deleteAllUserData(userId) {
-  return supabaseStorage.deleteAllUserData(userId);
+  return getImpl().deleteAllUserData(userId)
+}
+
+export async function createJob(params) {
+  return getImpl().createJob(params)
+}
+
+export async function getJob(id) {
+  return getImpl().getJob(id)
+}
+
+export async function updateJob(id, patch) {
+  return getImpl().updateJob(id, patch)
 }

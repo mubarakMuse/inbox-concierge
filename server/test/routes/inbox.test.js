@@ -8,6 +8,12 @@ vi.mock('../../lib/storage.js', () => ({
   getThreadsCache: vi.fn(),
   saveThreadsCache: vi.fn(),
   saveClassifications: vi.fn(),
+  createJob: vi.fn(),
+  getJob: vi.fn(),
+  updateJob: vi.fn(),
+}));
+vi.mock('../../lib/queue.js', () => ({
+  enqueueJob: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../lib/gmail.js', () => ({ fetchThreads: vi.fn() }));
 vi.mock('../../lib/classification.js', () => ({ classifyAll: vi.fn() }));
@@ -28,9 +34,8 @@ vi.mock('../../middleware/requireGmailAuth.js', () => ({
   },
 }));
 
-const { getBuckets, getClassifications, getThreadsCache, saveClassifications, saveThreadsCache } = await import('../../lib/storage.js');
-const { classifyAll } = await import('../../lib/classification.js');
-const { fetchThreads } = await import('../../lib/gmail.js');
+const { getBuckets, getClassifications, getThreadsCache, createJob, getJob } = await import('../../lib/storage.js');
+const { enqueueJob } = await import('../../lib/queue.js');
 
 describe('GET /api/inbox/buckets', () => {
   beforeEach(() => {
@@ -109,9 +114,8 @@ describe('GET /api/inbox/threads', () => {
 
 describe('POST /api/inbox/recategorize', () => {
   beforeEach(() => {
-    vi.mocked(getThreadsCache).mockReset();
-    vi.mocked(classifyAll).mockReset();
-    vi.mocked(saveClassifications).mockResolvedValue(undefined);
+    vi.mocked(createJob).mockReset();
+    vi.mocked(enqueueJob).mockReset().mockResolvedValue(undefined);
   });
 
   it('returns 401 when Gmail not connected', async () => {
@@ -119,27 +123,85 @@ describe('POST /api/inbox/recategorize', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 400 when no threads to recategorize', async () => {
-    vi.mocked(getThreadsCache).mockResolvedValue(null);
-    const res = await request(app)
-      .post('/api/inbox/recategorize')
-      .set('x-test-user', 'user-1')
-      .set('x-gmail-connected', 'true');
-    expect(res.status).toBe(400);
-    expect(res.body.error).toContain('No threads');
-  });
-
-  it('returns 200 and classifications when success', async () => {
-    const threads = [{ id: 't1', subject: 'S', snippet: '' }];
-    vi.mocked(getThreadsCache).mockResolvedValue(threads);
-    vi.mocked(classifyAll).mockResolvedValue({ t1: { bucket_id: 'important', reason: 'Urgent' } });
+  it('returns 200 with jobId and enqueues job', async () => {
+    vi.mocked(createJob).mockImplementation(async ({ id, userId, type }) => ({
+      id,
+      user_id: userId,
+      type,
+      status: 'queued',
+      done: 0,
+      total: 0,
+    }));
     const res = await request(app)
       .post('/api/inbox/recategorize')
       .set('x-test-user', 'user-1')
       .set('x-gmail-connected', 'true');
     expect(res.status).toBe(200);
-    expect(res.body.classifications).toEqual({ t1: { bucket_id: 'important', reason: 'Urgent' } });
-    expect(res.body.progress.done).toBe(1);
-    expect(res.body.progress.total).toBe(1);
+    expect(res.body.jobId).toBeTruthy();
+    expect(createJob).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', type: 'recategorize' })
+    );
+    expect(enqueueJob).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', type: 'recategorize', jobId: res.body.jobId })
+    );
+  });
+});
+
+describe('GET /api/inbox/jobs/:jobId', () => {
+  beforeEach(() => {
+    vi.mocked(getJob).mockReset();
+  });
+
+  it('returns job when owned by user', async () => {
+    vi.mocked(getJob).mockResolvedValue({
+      id: 'job-1',
+      user_id: 'user-1',
+      type: 'classify',
+      status: 'running',
+      done: 2,
+      total: 10,
+    });
+    const res = await request(app)
+      .get('/api/inbox/jobs/job-1')
+      .set('x-test-user', 'user-1');
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe('job-1');
+    expect(res.body.status).toBe('running');
+  });
+
+  it('returns 404 when job missing or owned by another user', async () => {
+    vi.mocked(getJob).mockResolvedValue({
+      id: 'job-1',
+      user_id: 'other-user',
+      type: 'classify',
+      status: 'queued',
+    });
+    const res = await request(app)
+      .get('/api/inbox/jobs/job-1')
+      .set('x-test-user', 'user-1');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/inbox/classify', () => {
+  beforeEach(() => {
+    vi.mocked(createJob).mockReset();
+    vi.mocked(enqueueJob).mockReset().mockResolvedValue(undefined);
+  });
+
+  it('returns jobId for classify', async () => {
+    vi.mocked(createJob).mockImplementation(async ({ id, userId, type }) => ({
+      id,
+      user_id: userId,
+      type,
+      status: 'queued',
+    }));
+    const res = await request(app)
+      .post('/api/inbox/classify')
+      .set('x-test-user', 'user-1')
+      .set('x-gmail-connected', 'true');
+    expect(res.status).toBe(200);
+    expect(res.body.jobId).toBeTruthy();
+    expect(enqueueJob).toHaveBeenCalled();
   });
 });

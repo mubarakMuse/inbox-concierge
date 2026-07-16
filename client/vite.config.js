@@ -9,6 +9,17 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5001',
         changeOrigin: true,
+        ws: true,
+        timeout: 0,
+        proxyTimeout: 0,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            // ensure streaming
+            if (req.headers.accept === 'text/event-stream') {
+              proxyReq.setHeader('Accept', 'text/event-stream')
+            }
+          })
+        },
       },
     },
   },

@@ -2,9 +2,26 @@ const API_BASE = import.meta.env.VITE_API_BASE
   ? `${String(import.meta.env.VITE_API_BASE).replace(/\/$/, '')}/api`
   : '/api'
 
+const UNREACHABLE_API_MESSAGE =
+  'Cannot reach API. Is the server running on port 5001?'
+
 export const defaultFetchOpts = { credentials: 'include' }
 
 export const apiUrl = (path) => `${API_BASE}${path}`
+
+const isFailedToFetch = (err) =>
+  err instanceof TypeError && /failed to fetch/i.test(err.message || '')
+
+export async function apiFetch(input, init) {
+  try {
+    return await fetch(input, init)
+  } catch (err) {
+    if (isFailedToFetch(err)) {
+      throw new Error(UNREACHABLE_API_MESSAGE)
+    }
+    throw err
+  }
+}
 
 export async function parseJson(res) {
   const contentType = res.headers.get('content-type') || ''

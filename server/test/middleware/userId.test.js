@@ -6,34 +6,34 @@ describe('userIdFromCookie', () => {
     vi.stubEnv('NODE_ENV', 'test');
   });
 
-  it('sets req.userId to "default" when no cookie', () => {
+  it('sets req.userId to null when no cookie', () => {
     const req = { headers: {} };
     const res = {};
     let nextCalled = false;
     userIdFromCookie(req, res, () => { nextCalled = true; });
-    expect(req.userId).toBe('default');
+    expect(req.userId).toBe(null);
     expect(nextCalled).toBe(true);
   });
 
-  it('sets req.userId to "default" when cookie header is empty string', () => {
+  it('sets req.userId to null when cookie header is empty string', () => {
     const req = { headers: { cookie: '' } };
     const res = {};
     userIdFromCookie(req, res, () => {});
-    expect(req.userId).toBe('default');
+    expect(req.userId).toBe(null);
   });
 
-  it('sets req.userId to "default" when cookie has wrong name', () => {
+  it('sets req.userId to null when cookie has wrong name', () => {
     const req = { headers: { cookie: 'other=foo' } };
     const res = {};
     userIdFromCookie(req, res, () => {});
-    expect(req.userId).toBe('default');
+    expect(req.userId).toBe(null);
   });
 
-  it('sets req.userId to "default" when payload is invalid base64url', () => {
+  it('sets req.userId to null when payload is invalid base64url', () => {
     const req = { headers: { cookie: 'uid=not-valid-base64!!.somesig' } };
     const res = {};
     userIdFromCookie(req, res, () => {});
-    expect(req.userId).toBe('default');
+    expect(req.userId).toBe(null);
   });
 });
 

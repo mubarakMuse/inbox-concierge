@@ -9,6 +9,7 @@ vi.mock('../../lib/storage.js', () => ({
   saveThreadsCache: vi.fn(),
   saveClassifications: vi.fn(),
   createJob: vi.fn(),
+  getActiveJob: vi.fn(),
   getJob: vi.fn(),
   updateJob: vi.fn(),
 }));
@@ -34,7 +35,7 @@ vi.mock('../../middleware/requireGmailAuth.js', () => ({
   },
 }));
 
-const { getBuckets, getClassifications, getThreadsCache, createJob, getJob } = await import('../../lib/storage.js');
+const { getBuckets, getClassifications, getThreadsCache, createJob, getActiveJob, getJob } = await import('../../lib/storage.js');
 const { enqueueJob } = await import('../../lib/queue.js');
 
 describe('GET /api/inbox/buckets', () => {
@@ -115,6 +116,7 @@ describe('GET /api/inbox/threads', () => {
 describe('POST /api/inbox/recategorize', () => {
   beforeEach(() => {
     vi.mocked(createJob).mockReset();
+    vi.mocked(getActiveJob).mockReset().mockResolvedValue(null);
     vi.mocked(enqueueJob).mockReset().mockResolvedValue(undefined);
   });
 
@@ -138,12 +140,30 @@ describe('POST /api/inbox/recategorize', () => {
       .set('x-gmail-connected', 'true');
     expect(res.status).toBe(200);
     expect(res.body.jobId).toBeTruthy();
+    expect(res.body.reused).toBe(false);
     expect(createJob).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-1', type: 'recategorize' })
     );
     expect(enqueueJob).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-1', type: 'recategorize', jobId: res.body.jobId })
     );
+  });
+
+  it('returns existing active job without creating another', async () => {
+    vi.mocked(getActiveJob).mockResolvedValue({
+      id: 'active-1',
+      user_id: 'user-1',
+      type: 'recategorize',
+      status: 'running',
+    });
+    const res = await request(app)
+      .post('/api/inbox/recategorize')
+      .set('x-test-user', 'user-1')
+      .set('x-gmail-connected', 'true');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ jobId: 'active-1', reused: true });
+    expect(createJob).not.toHaveBeenCalled();
+    expect(enqueueJob).not.toHaveBeenCalled();
   });
 });
 
@@ -186,22 +206,41 @@ describe('GET /api/inbox/jobs/:jobId', () => {
 describe('POST /api/inbox/classify', () => {
   beforeEach(() => {
     vi.mocked(createJob).mockReset();
+    vi.mocked(getActiveJob).mockReset().mockResolvedValue(null);
     vi.mocked(enqueueJob).mockReset().mockResolvedValue(undefined);
   });
 
-  it('returns jobId for classify', async () => {
-    vi.mocked(createJob).mockImplementation(async ({ id, userId, type }) => ({
+  it('returns jobId for classify with forceRefresh payload', async () => {
+    vi.mocked(createJob).mockImplementation(async ({ id, userId, type, payload }) => ({
       id,
       user_id: userId,
       type,
+      payload,
       status: 'queued',
     }));
     const res = await request(app)
       .post('/api/inbox/classify')
       .set('x-test-user', 'user-1')
-      .set('x-gmail-connected', 'true');
+      .set('x-gmail-connected', 'true')
+      .send({ forceRefresh: true });
     expect(res.status).toBe(200);
     expect(res.body.jobId).toBeTruthy();
+    expect(res.body.reused).toBe(false);
+    expect(createJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        type: 'classify',
+        payload: { forceRefresh: true },
+      })
+    );
     expect(enqueueJob).toHaveBeenCalled();
+  });
+
+  it('does not expose classify-progress SSE route', async () => {
+    const res = await request(app)
+      .post('/api/inbox/classify-progress')
+      .set('x-test-user', 'user-1')
+      .set('x-gmail-connected', 'true');
+    expect(res.status).toBe(404);
   });
 });

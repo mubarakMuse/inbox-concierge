@@ -26,6 +26,8 @@ export async function runClassifyJob(jobId) {
 
   const userId = job.user_id;
   const type = job.type;
+  const payload = job.payload && typeof job.payload === 'object' ? job.payload : {};
+  const forceRefresh = !!payload.forceRefresh;
 
   try {
     await updateJob(jobId, { status: 'running' });
@@ -37,7 +39,7 @@ export async function runClassifyJob(jobId) {
 
     let threads;
     if (type === 'classify') {
-      threads = await getThreadsCache(userId);
+      threads = forceRefresh ? null : await getThreadsCache(userId);
       if (!threads || threads.length === 0) {
         threads = await fetchThreads(200, auth);
         await saveThreadsCache(threads, userId);
@@ -101,7 +103,7 @@ export async function runClassifyJob(jobId) {
   }
 }
 
-/** Load done payload for SSE clients when result is missing. */
+/** Load done payload when result is missing (e.g. client polling). */
 export async function loadJobDonePayload(job) {
   if (job?.result?.threads && job?.result?.classifications) {
     return {

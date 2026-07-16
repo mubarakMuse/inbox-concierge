@@ -5,13 +5,15 @@ import Login from './Login';
 
 vi.mock('../api/index.js', () => ({
   getAuthUrl: vi.fn(),
+  getAuthStatus: vi.fn(),
 }))
 
-const { getAuthUrl } = await import('../api/index.js')
+const { getAuthUrl, getAuthStatus } = await import('../api/index.js')
 
 describe('Login', () => {
   beforeEach(() => {
     vi.mocked(getAuthUrl).mockReset();
+    vi.mocked(getAuthStatus).mockReset();
   });
 
   it('renders title and Connect Gmail button', () => {
@@ -40,13 +42,17 @@ describe('Login', () => {
     expect(hrefSetter).toHaveBeenCalledWith('https://accounts.google.com/o/oauth2/auth');
   });
 
-  it('calls onConnect when URL has auth=success', () => {
+  it('calls onConnect when URL has auth=success', async () => {
     const onConnect = vi.fn();
+    vi.mocked(getAuthStatus).mockResolvedValue({ connected: true, hasTokens: true });
     Object.defineProperty(window, 'location', {
-      value: { search: '?auth=success', replaceState: vi.fn(), pathname: '/' },
+      value: { search: '?auth=success', pathname: '/' },
       writable: true,
     });
+    window.history.replaceState = vi.fn();
     render(<Login onConnect={onConnect} />);
-    expect(onConnect).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(onConnect).toHaveBeenCalled();
+    });
   });
 });

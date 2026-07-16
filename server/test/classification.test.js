@@ -4,7 +4,14 @@ import { parseResponse, getBucketIdByName } from '../lib/classification.js';
 describe('parseResponse', () => {
   const names = ['Important', 'Can wait', 'Other'];
 
-  it('parses valid JSON array', () => {
+  it('parses valid JSON object with items', () => {
+    const text = '{"items":[{"thread_id":"t1","bucket":"Important","reason":"Urgent"}]}';
+    expect(parseResponse(text, names)).toEqual([
+      { thread_id: 't1', bucket: 'Important', reason: 'Urgent' },
+    ]);
+  });
+
+  it('parses legacy JSON array', () => {
     const text = '[{"thread_id":"t1","bucket":"Important","reason":"Urgent"}]';
     expect(parseResponse(text, names)).toEqual([
       { thread_id: 't1', bucket: 'Important', reason: 'Urgent' },
@@ -12,14 +19,14 @@ describe('parseResponse', () => {
   });
 
   it('strips markdown code fence', () => {
-    const text = '```json\n[{"thread_id":"t1","bucket":"Other","reason":""}]\n```';
+    const text = '```json\n{"items":[{"thread_id":"t1","bucket":"Other","reason":""}]}\n```';
     expect(parseResponse(text, names)).toEqual([
       { thread_id: 't1', bucket: 'Other', reason: '' },
     ]);
   });
 
   it('maps unknown bucket to Other', () => {
-    const text = '[{"thread_id":"t1","bucket":"Unknown","reason":"x"}]';
+    const text = '{"items":[{"thread_id":"t1","bucket":"Unknown","reason":"x"}]}';
     expect(parseResponse(text, names)).toEqual([
       { thread_id: 't1', bucket: 'Other', reason: 'x' },
     ]);
@@ -27,7 +34,7 @@ describe('parseResponse', () => {
 
   it('truncates reason to 120 chars', () => {
     const long = 'a'.repeat(150);
-    const text = `[{"thread_id":"t1","bucket":"Important","reason":"${long}"}]`;
+    const text = `{"items":[{"thread_id":"t1","bucket":"Important","reason":"${long}"}]}`;
     expect(parseResponse(text, names)[0].reason.length).toBe(120);
   });
 
@@ -37,7 +44,7 @@ describe('parseResponse', () => {
   });
 
   it('filters out items missing thread_id or bucket', () => {
-    const text = '[{"bucket":"Other"},{"thread_id":"t1"},{"thread_id":"t2","bucket":"Other","reason":""}]';
+    const text = '{"items":[{"bucket":"Other"},{"thread_id":"t1"},{"thread_id":"t2","bucket":"Other","reason":""}]}';
     expect(parseResponse(text, names)).toEqual([
       { thread_id: 't2', bucket: 'Other', reason: '' },
     ]);

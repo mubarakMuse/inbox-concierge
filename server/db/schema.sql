@@ -56,10 +56,12 @@ CREATE TABLE IF NOT EXISTS jobs (
   total INT NOT NULL DEFAULT 0,
   error TEXT,
   result JSONB,
+  payload JSONB NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS jobs_user_id_idx ON jobs (user_id);
+CREATE INDEX IF NOT EXISTS jobs_user_active_idx ON jobs (user_id) WHERE status IN ('queued', 'running');
 
 -- RLS (uncomment when using real user_id from auth):
 -- ALTER TABLE buckets ENABLE ROW LEVEL SECURITY;

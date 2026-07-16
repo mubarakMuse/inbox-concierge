@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getAuthUrl, setCredentialsFromCode, getAuthenticatedClient } from '../lib/auth.js';
 import { getStoredTokens, clearTokens, deleteAllUserData } from '../lib/storage.js';
 import { userIdFromCookie, setUserIdCookie, clearUserIdCookie } from '../middleware/userId.js';
+import { requireAuth } from '../middleware/requireAuth.js';
 import { rateLimitAuth } from '../middleware/rateLimit.js';
 import { logger } from '../lib/logger.js';
 
@@ -36,6 +37,9 @@ authRouter.get('/callback', async (req, res) => {
 
 authRouter.get('/status', userIdFromCookie, async (req, res) => {
   try {
+    if (!req.userId) {
+      return res.json({ connected: false, hasTokens: false });
+    }
     const client = await getAuthenticatedClient(req.userId);
     const tokens = await getStoredTokens(req.userId);
     res.json({ connected: !!client, hasTokens: !!tokens });
@@ -49,17 +53,16 @@ authRouter.get('/status', userIdFromCookie, async (req, res) => {
   }
 });
 
-authRouter.post('/disconnect', userIdFromCookie, async (req, res) => {
+authRouter.post('/disconnect', userIdFromCookie, requireAuth, async (req, res) => {
   await clearTokens(req.userId);
   clearUserIdCookie(res);
   res.json({ ok: true });
 });
 
-authRouter.post('/delete-all-data', userIdFromCookie, async (req, res) => {
+authRouter.post('/delete-all-data', userIdFromCookie, requireAuth, async (req, res) => {
   try {
-    const userId = req.userId || 'default';
-    await deleteAllUserData(userId);
-    await clearTokens(userId);
+    await deleteAllUserData(req.userId);
+    await clearTokens(req.userId);
     clearUserIdCookie(res);
     res.json({ ok: true });
   } catch (err) {

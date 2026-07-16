@@ -1,5 +1,6 @@
 import { query } from './db.js'
 import { slugify } from './slugify.js'
+import { encryptTokens, decryptTokens } from './tokenCrypto.js'
 
 const DEFAULT_USER_ID = 'default'
 
@@ -123,17 +124,20 @@ export async function saveThreadsCache(threads, userId = DEFAULT_USER_ID) {
 export async function getStoredTokens(userId = DEFAULT_USER_ID) {
   const u = uid(userId)
   const { rows } = await query(`SELECT tokens FROM tokens WHERE user_id = $1`, [u])
-  return rows[0]?.tokens ?? null
+  const raw = rows[0]?.tokens ?? null
+  if (raw == null) return null
+  return decryptTokens(raw)
 }
 
 export async function saveTokens(tokens, userId = DEFAULT_USER_ID) {
   const u = uid(userId)
+  const toStore = encryptTokens(tokens)
   await query(
     `INSERT INTO tokens (user_id, tokens, updated_at)
      VALUES ($1, $2::jsonb, now())
      ON CONFLICT (user_id)
      DO UPDATE SET tokens = EXCLUDED.tokens, updated_at = now()`,
-    [u, JSON.stringify(tokens)]
+    [u, JSON.stringify(toStore)]
   )
 }
 
@@ -142,15 +146,27 @@ export async function clearTokens(userId = DEFAULT_USER_ID) {
   await query(`DELETE FROM tokens WHERE user_id = $1`, [u])
 }
 
-export async function createJob({ id, userId, type }) {
+export async function createJob({ id, userId, type, payload = {} }) {
   const u = uid(userId)
   const { rows } = await query(
-    `INSERT INTO jobs (id, user_id, type, status, done, total, error, result, created_at, updated_at)
-     VALUES ($1, $2, $3, 'queued', 0, 0, NULL, NULL, now(), now())
+    `INSERT INTO jobs (id, user_id, type, status, done, total, error, result, payload, created_at, updated_at)
+     VALUES ($1, $2, $3, 'queued', 0, 0, NULL, NULL, $4::jsonb, now(), now())
      RETURNING *`,
-    [id, u, type]
+    [id, u, type, JSON.stringify(payload || {})]
   )
   return rows[0]
+}
+
+export async function getActiveJob(userId = DEFAULT_USER_ID) {
+  const u = uid(userId)
+  const { rows } = await query(
+    `SELECT * FROM jobs
+     WHERE user_id = $1 AND status IN ('queued', 'running')
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [u]
+  )
+  return rows[0] ?? null
 }
 
 export async function getJob(id) {

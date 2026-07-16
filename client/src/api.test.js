@@ -21,7 +21,7 @@ describe('api', () => {
       });
       const url = await api.getAuthUrl();
       expect(url).toBe('https://accounts.google.com/...');
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/auth/url'));
+      expect(fetch.mock.calls[0][0]).toContain('/auth/url');
     });
 
     it('throws when response not ok', async () => {
@@ -142,6 +142,56 @@ describe('api', () => {
       });
       await api.deleteBucket('my-bucket');
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/buckets/my-bucket'), expect.objectContaining({ method: 'DELETE' }));
+    });
+  });
+
+  describe('classifyWithProgress', () => {
+    it('posts classify then polls job until completed', async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ jobId: 'job-c' }),
+          headers: new Headers({ 'content-type': 'application/json' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'job-c',
+              status: 'completed',
+              done: 2,
+              total: 2,
+              result: {
+                threads: [{ id: 't1', subject: 'Hi' }],
+                classifications: { t1: { bucket_id: 'important', reason: 'x' } },
+              },
+            }),
+          headers: new Headers({ 'content-type': 'application/json' }),
+        });
+
+      const onProgress = vi.fn();
+      const payload = await new Promise((resolve, reject) => {
+        api.classifyWithProgress(
+          onProgress,
+          (done) => resolve(done),
+          (message) => reject(new Error(message))
+        );
+      });
+
+      expect(payload.threads).toHaveLength(1);
+      expect(payload.classifications.t1.bucket_id).toBe('important');
+      expect(onProgress).toHaveBeenCalledWith({ done: 2, total: 2 });
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/inbox/classify'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ forceRefresh: true }),
+        })
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/inbox/jobs/job-c'),
+        expect.anything()
+      );
     });
   });
 

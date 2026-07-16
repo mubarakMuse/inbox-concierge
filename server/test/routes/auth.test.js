@@ -14,7 +14,11 @@ vi.mock('../../lib/storage.js', () => ({
 }));
 vi.mock('../../middleware/userId.js', () => ({
   userIdFromCookie: (req, _res, next) => {
-    req.userId = req.headers['x-test-user'] || 'user-1';
+    if (req.headers['x-test-user'] === '') {
+      req.userId = null;
+    } else {
+      req.userId = req.headers['x-test-user'] || 'user-1';
+    }
     next();
   },
   setUserIdCookie: vi.fn(),
@@ -94,6 +98,12 @@ describe('GET /api/auth/status', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ connected: false, hasTokens: false });
   });
+
+  it('returns connected: false without 401 when no userId', async () => {
+    const res = await request(app).get('/api/auth/status').set('x-test-user', '');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ connected: false, hasTokens: false });
+  });
 });
 
 describe('POST /api/auth/disconnect', () => {
@@ -106,6 +116,12 @@ describe('POST /api/auth/disconnect', () => {
     const res = await request(app).post('/api/auth/disconnect').set('x-test-user', 'user-1');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
+  });
+
+  it('returns 401 when not authenticated', async () => {
+    const res = await request(app).post('/api/auth/disconnect').set('x-test-user', '');
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Not authenticated');
   });
 });
 

@@ -13,11 +13,11 @@ function parseCookieHeader(cookieHeader) {
   return match ? decodeURIComponent(match[1].trim()) : null;
 }
 
-// Sets req.userId from signed cookie, or 'default'.
+// Sets req.userId from signed cookie, or null if missing/invalid.
 export function userIdFromCookie(req, res, next) {
   const raw = parseCookieHeader(req.headers.cookie);
   if (!raw) {
-    req.userId = 'default';
+    req.userId = null;
     return next();
   }
   const [payload, sig] = raw.includes('.') ? raw.split('.') : [raw, ''];
@@ -25,11 +25,11 @@ export function userIdFromCookie(req, res, next) {
   try {
     userId = Buffer.from(payload, 'base64url').toString('utf8');
   } catch {
-    req.userId = 'default';
+    req.userId = null;
     return next();
   }
   if (!userId || sign(userId) !== sig) {
-    req.userId = 'default';
+    req.userId = null;
     return next();
   }
   req.userId = userId;

@@ -16,7 +16,7 @@ export function getPool() {
   if (pool) return pool
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) {
-    throw new Error('DATABASE_URL is required when STORAGE_DRIVER=pg. Set it in server/.env')
+    throw new Error('DATABASE_URL is required. Set it in server/.env')
   }
   pool = new Pool({
     connectionString,

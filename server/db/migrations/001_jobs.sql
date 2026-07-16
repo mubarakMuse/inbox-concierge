@@ -1,5 +1,5 @@
 -- Migration: async jobs table for classify / recategorize
--- Run in Supabase SQL Editor for existing projects.
+-- Run against Postgres for existing databases that predate jobs.
 
 CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,

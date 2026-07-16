@@ -12,4 +12,3 @@ coverage
 .prettierrc.json
 eslint.config.js
 vitest.config.js
-railway.json

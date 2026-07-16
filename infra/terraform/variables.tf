@@ -58,20 +58,6 @@ variable "db_publicly_accessible" {
   default     = false
 }
 
-# Deprecated: optional legacy Supabase (STORAGE_DRIVER=supabase). Prefer RDS.
-variable "supabase_url" {
-  description = "Deprecated. Unused when STORAGE_DRIVER=pg (default)."
-  type        = string
-  default     = ""
-}
-
-variable "supabase_service_role_key" {
-  description = "Deprecated. Unused when STORAGE_DRIVER=pg (default)."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "google_client_id" {
   type      = string
   default   = ""

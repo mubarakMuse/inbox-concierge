@@ -22,7 +22,7 @@ app.use('/api/inbox', inboxRouter);
 app.get('/api/health', (_req, res) =>
   res.json({
     ok: true,
-    storage: (process.env.STORAGE_DRIVER || 'pg').toLowerCase(),
+    storage: 'postgres',
     queue: process.env.QUEUE_DRIVER || 'local',
   })
 );

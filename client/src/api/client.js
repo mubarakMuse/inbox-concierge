@@ -29,7 +29,7 @@ export async function parseJson(res) {
     const text = await res.text()
     if (text.trim().startsWith('<!')) {
       throw new Error(
-        'API returned a page instead of JSON. Set VITE_API_BASE to your Railway URL in Netlify env vars and trigger a new deploy.'
+        'API returned a page instead of JSON. Set VITE_API_BASE to your App Runner URL and redeploy the CloudFront SPA.'
       )
     }
     throw new Error(

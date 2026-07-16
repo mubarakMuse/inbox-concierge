@@ -22,7 +22,6 @@ resource "aws_lambda_function" "worker" {
       NODE_ENV             = "production"
       QUEUE_DRIVER         = "sqs"
       SQS_QUEUE_URL        = aws_sqs_queue.jobs.url
-      STORAGE_DRIVER       = "pg"
       DATABASE_URL         = local.database_url
       DATABASE_SSL         = "true"
       GOOGLE_CLIENT_ID     = var.google_client_id

@@ -31,7 +31,6 @@ resource "aws_apprunner_service" "api" {
           PORT                   = "8080"
           AWS_REGION             = var.aws_region
           SQS_QUEUE_URL          = aws_sqs_queue.jobs.url
-          STORAGE_DRIVER         = "pg"
           DATABASE_URL           = local.database_url
           DATABASE_SSL           = "true"
           GOOGLE_CLIENT_ID       = var.google_client_id

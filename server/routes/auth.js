@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getAuthUrl, setCredentialsFromCode, getAuthenticatedClient } from '../lib/auth.js';
-import { getStoredTokens, clearTokens, deleteAllUserData } from '../lib/storage.js';
+import { getStoredTokens, clearTokens, deleteAllUserData, cancelActiveJobs } from '../lib/storage.js';
 import { userIdFromCookie, setUserIdCookie, clearUserIdCookie } from '../middleware/userId.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { rateLimitAuth } from '../middleware/rateLimit.js';
@@ -61,6 +61,7 @@ authRouter.post('/disconnect', userIdFromCookie, requireAuth, async (req, res) =
 
 authRouter.post('/delete-all-data', userIdFromCookie, requireAuth, async (req, res) => {
   try {
+    await cancelActiveJobs(req.userId);
     await deleteAllUserData(req.userId);
     await clearTokens(req.userId);
     clearUserIdCookie(res);

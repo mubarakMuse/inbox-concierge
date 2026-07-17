@@ -13,8 +13,14 @@ vi.mock('./api/index.js', () => ({
   deleteBucket: vi.fn(),
   getAuthUrl: vi.fn(),
   classifyWithProgress: vi.fn(),
+  resumeJobWithProgress: vi.fn(),
   recategorize: vi.fn(),
   moveThread: vi.fn(),
+  getActiveJob: vi.fn().mockResolvedValue({ job: null }),
+  getJob: vi.fn(),
+  cancelActiveJobPoll: vi.fn(),
+  getStoredActiveJobId: vi.fn().mockReturnValue(null),
+  clearStoredActiveJobId: vi.fn(),
 }));
 
 const { getAuthStatus } = await import('./api/index.js')

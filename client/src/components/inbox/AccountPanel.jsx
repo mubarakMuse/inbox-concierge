@@ -4,6 +4,7 @@ export default function AccountPanel({
   open,
   showDeleteConfirm,
   deletingData,
+  classifying,
   onDisconnect,
   onDeleteClick,
   onCancelDelete,
@@ -16,11 +17,16 @@ export default function AccountPanel({
       <div className="manage-grid">
         <div className="manage-card">
           <h3 className="manage-heading">Gmail</h3>
-          <p className="manage-hint">Disconnect this account. Your sorted buckets stay until you delete data.</p>
+          <p className="manage-hint">
+            {classifying
+              ? 'Finish sorting before disconnecting, or delete your data to cancel.'
+              : 'Disconnect this account. Your sorted buckets stay until you delete data.'}
+          </p>
           <Button
             variant="ghost"
             className="btn-block"
             onClick={onDisconnect}
+            disabled={classifying || deletingData}
             aria-label="Disconnect Gmail"
           >
             Disconnect Gmail
@@ -30,7 +36,11 @@ export default function AccountPanel({
           <h3 className="manage-heading">Data</h3>
           {showDeleteConfirm ? (
             <>
-              <p className="manage-hint">Remove all buckets, classifications, and cached emails. You will be signed out.</p>
+              <p className="manage-hint">
+                {classifying
+                  ? 'This cancels sorting and removes all buckets, classifications, and cached emails. You will be signed out.'
+                  : 'Remove all buckets, classifications, and cached emails. You will be signed out.'}
+              </p>
               <div className="manage-actions">
                 <Button variant="ghost" onClick={onCancelDelete} disabled={deletingData}>Cancel</Button>
                 <Button variant="danger" onClick={onConfirmDelete} disabled={deletingData} aria-busy={deletingData}>
@@ -39,7 +49,13 @@ export default function AccountPanel({
               </div>
             </>
           ) : (
-            <Button variant="link" className="delete-link" onClick={onDeleteClick} aria-label="Delete all my data">
+            <Button
+              variant="link"
+              className="delete-link"
+              onClick={onDeleteClick}
+              disabled={deletingData}
+              aria-label="Delete all my data"
+            >
               Delete all my data
             </Button>
           )}

@@ -16,17 +16,23 @@ export default function BucketsPanel({
 }) {
   if (!open) return null
 
+  const formDisabled = creatingBucket || classifying
+
   return (
     <section id="buckets-panel" className="manage-panel" aria-label="Bucket settings">
       <div className="manage-grid">
         <div className="manage-card">
           <h3 className="manage-heading">Custom bucket</h3>
-          <p className="manage-hint">Add a label — we&apos;ll recategorize everything to include it.</p>
+          <p className="manage-hint">
+            {classifying
+              ? 'Sorting in progress — add a bucket after this run finishes.'
+              : 'Add a label — we\'ll recategorize everything to include it.'}
+          </p>
           <AddBucketForm
             value={newBucketName}
             onChange={onNewBucketNameChange}
             onSubmit={onCreateBucket}
-            disabled={creatingBucket}
+            disabled={formDisabled}
           />
           {buckets.filter((b) => !b.is_default).length > 0 && (
             <ul className="custom-bucket-list">
@@ -37,7 +43,7 @@ export default function BucketsPanel({
                     type="button"
                     className="bucket-remove"
                     onClick={(e) => onRemoveBucket(e, b.id)}
-                    disabled={removingBucketId === b.id}
+                    disabled={removingBucketId === b.id || classifying}
                     aria-label={`Remove bucket ${b.name}`}
                   >
                     Remove

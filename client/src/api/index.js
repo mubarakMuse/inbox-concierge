@@ -5,6 +5,11 @@ export {
   getThreads,
   moveThread,
   getJob,
+  getActiveJob,
   classifyWithProgress,
+  resumeJobWithProgress,
   recategorize,
+  cancelActiveJobPoll,
+  getStoredActiveJobId,
+  clearStoredActiveJobId,
 } from './inbox.js'

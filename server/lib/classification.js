@@ -110,11 +110,14 @@ export async function classifyAll(threads, onProgress, userId) {
           };
         }
         assignOther(results, batch);
-        if (onProgress) onProgress({ done: (i + 1) * batch.length, total: threads.length, partial: { ...results } });
+        if (onProgress) {
+          await onProgress({ done: (i + 1) * batch.length, total: threads.length, partial: { ...results } });
+        }
         batchDone = true;
         lastError = null;
       } catch (err) {
         lastError = err;
+        if (err?.code === 'JOB_CANCELLED' || err?.message === 'Cancelled') throw err;
         if (err?.status === 429 || (err?.status >= 500 && err?.status < 600)) {
           await new Promise((res) => setTimeout(res, DELAY_MS * (r + 1)));
         } else throw err;
@@ -124,7 +127,9 @@ export async function classifyAll(threads, onProgress, userId) {
     if (!batchDone) {
       if (lastError && Object.keys(results).length === 0) throw lastError;
       assignOther(results, batch);
-      if (onProgress) onProgress({ done: (i + 1) * batch.length, total: threads.length, partial: { ...results } });
+      if (onProgress) {
+        await onProgress({ done: (i + 1) * batch.length, total: threads.length, partial: { ...results } });
+      }
     }
 
     await new Promise((res) => setTimeout(res, DELAY_MS));

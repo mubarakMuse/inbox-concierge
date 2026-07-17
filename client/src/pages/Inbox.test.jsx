@@ -7,12 +7,18 @@ vi.mock('../api/index.js', () => ({
   getBucketsWithCounts: vi.fn(),
   getThreads: vi.fn(),
   classifyWithProgress: vi.fn(),
+  resumeJobWithProgress: vi.fn(),
   recategorize: vi.fn(),
   createBucket: vi.fn(),
   deleteBucket: vi.fn(),
   disconnect: vi.fn(),
   deleteAllMyData: vi.fn(),
   moveThread: vi.fn(),
+  getActiveJob: vi.fn(),
+  getJob: vi.fn(),
+  cancelActiveJobPoll: vi.fn(),
+  getStoredActiveJobId: vi.fn(),
+  clearStoredActiveJobId: vi.fn(),
 }));
 
 const api = await import('../api/index.js')
@@ -33,6 +39,8 @@ describe('Inbox', () => {
       lastSortedAt: '2026-07-17T10:00:00.000Z',
     });
     vi.mocked(api.getThreads).mockResolvedValue({ threads: [], needClassify: false });
+    vi.mocked(api.getActiveJob).mockResolvedValue({ job: null });
+    vi.mocked(api.getStoredActiveJobId).mockReturnValue(null);
     vi.mocked(api.disconnect).mockResolvedValue(undefined);
     vi.mocked(api.moveThread).mockResolvedValue({ thread_id: 't1', bucket_id: 'can-wait', reason: '' });
   });

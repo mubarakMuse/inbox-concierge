@@ -15,6 +15,7 @@ export {
   deleteAllUserData,
   createJob,
   getActiveJob,
+  cancelActiveJobs,
   getJob,
   updateJob,
 } from './storage-pg.js'

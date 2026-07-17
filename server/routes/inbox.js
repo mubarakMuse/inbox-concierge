@@ -112,6 +112,15 @@ inboxRouter.post('/classify', requireGmailAuth, rateLimitClassify, async (req, r
   }
 });
 
+inboxRouter.get('/jobs/active', async (req, res) => {
+  try {
+    const job = await getActiveJob(req.userId);
+    res.json({ job: job ?? null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 inboxRouter.get('/jobs/:jobId', async (req, res) => {
   try {
     const userId = req.userId;

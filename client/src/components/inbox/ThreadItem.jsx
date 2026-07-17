@@ -1,12 +1,18 @@
 import { decodeHtmlEntities } from '../../utils/decodeHtml.js'
+import { getBucketMeta } from '../../utils/buckets.js'
 
-const MOVE_TARGETS = [
-  { id: 'important', label: 'Important' },
-  { id: 'can-wait', label: 'Wait' },
-  { id: 'auto-archive', label: 'Archive' },
-  { id: 'newsletter', label: 'Newsletter' },
-  { id: 'other', label: 'Other' },
-]
+const SHORT_LABELS = {
+  important: 'Important',
+  'can-wait': 'Wait',
+  'auto-archive': 'Archive',
+  newsletter: 'Newsletter',
+  other: 'Other',
+}
+
+const getMoveLabel = (bucket) => {
+  if (SHORT_LABELS[bucket.id]) return SHORT_LABELS[bucket.id]
+  return getBucketMeta(bucket).label
+}
 
 export default function ThreadItem({
   thread,
@@ -22,10 +28,12 @@ export default function ThreadItem({
     : 'Sorted by AI'
   const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(thread.id)}`
 
-  const moveOptions = MOVE_TARGETS.filter((target) => {
-    if (target.id === currentBucketId) return false
-    return !buckets?.length || buckets.some((b) => b.id === target.id)
-  })
+  const moveOptions = (buckets || [])
+    .filter((bucket) => bucket.id !== currentBucketId)
+    .map((bucket) => ({
+      id: bucket.id,
+      label: getMoveLabel(bucket),
+    }))
 
   const handleMove = (bucketId) => {
     if (moving || !onMoveThread) return

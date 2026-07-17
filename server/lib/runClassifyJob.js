@@ -13,6 +13,16 @@ import { logger } from './logger.js';
 
 const TERMINAL = new Set(['completed', 'failed']);
 
+const assertJobStillActive = async (jobId) => {
+  const current = await getJob(jobId);
+  if (!current || current.status === 'failed') {
+    const err = new Error('Cancelled');
+    err.code = 'JOB_CANCELLED';
+    throw err;
+  }
+  return current;
+};
+
 export async function runClassifyJob(jobId) {
   const job = await getJob(jobId);
   if (!job) {
@@ -31,6 +41,7 @@ export async function runClassifyJob(jobId) {
 
   try {
     await updateJob(jobId, { status: 'running' });
+    await assertJobStillActive(jobId);
 
     const auth = await getAuthenticatedClient(userId);
     if (!auth) {
@@ -42,9 +53,11 @@ export async function runClassifyJob(jobId) {
       threads = forceRefresh ? null : await getThreadsCache(userId);
       if (!threads || threads.length === 0) {
         threads = await fetchThreads(200, auth);
+        await assertJobStillActive(jobId);
         await saveThreadsCache(threads, userId);
       }
       if (threads.length === 0) {
+        await assertJobStillActive(jobId);
         await saveClassifications({}, userId);
         await updateJob(jobId, {
           status: 'completed',
@@ -64,23 +77,22 @@ export async function runClassifyJob(jobId) {
       throw new Error(`Unknown job type: ${type}`);
     }
 
+    await assertJobStillActive(jobId);
     await updateJob(jobId, { total: threads.length, done: 0 });
 
     const classifications = await classifyAll(
       threads,
-      (progress) => {
+      async (progress) => {
+        await assertJobStillActive(jobId);
         if (progress.partial) {
-          saveClassifications(progress.partial, userId).catch((e) =>
-            logger.error('Save partial classifications', e, { jobId })
-          );
+          await saveClassifications(progress.partial, userId);
         }
-        updateJob(jobId, { done: progress.done, total: progress.total }).catch((e) =>
-          logger.error('Update job progress', e, { jobId })
-        );
+        await updateJob(jobId, { done: progress.done, total: progress.total });
       },
       userId
     );
 
+    await assertJobStillActive(jobId);
     await saveClassifications(classifications, userId);
     const withReasons = threads.map((t) => ({
       ...t,
@@ -95,6 +107,10 @@ export async function runClassifyJob(jobId) {
     });
     logger.info('Classify job completed', { jobId, userId, type, total: threads.length });
   } catch (err) {
+    if (err?.code === 'JOB_CANCELLED' || err?.message === 'Cancelled') {
+      logger.info('Classify job cancelled — stopping writes', { jobId, userId });
+      return;
+    }
     logger.error('Classify job failed', err, { jobId, userId: job.user_id, type: job.type });
     await updateJob(jobId, {
       status: 'failed',

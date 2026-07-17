@@ -249,6 +249,39 @@ describe('POST /api/inbox/recategorize', () => {
   });
 });
 
+describe('GET /api/inbox/jobs/active', () => {
+  beforeEach(() => {
+    vi.mocked(getActiveJob).mockReset();
+  });
+
+  it('returns active job when present', async () => {
+    vi.mocked(getActiveJob).mockResolvedValue({
+      id: 'job-active',
+      user_id: 'user-1',
+      type: 'classify',
+      status: 'running',
+      done: 3,
+      total: 10,
+    });
+    const res = await request(app)
+      .get('/api/inbox/jobs/active')
+      .set('x-test-user', 'user-1');
+    expect(res.status).toBe(200);
+    expect(res.body.job).toEqual(
+      expect.objectContaining({ id: 'job-active', status: 'running' })
+    );
+  });
+
+  it('returns job null when none active', async () => {
+    vi.mocked(getActiveJob).mockResolvedValue(null);
+    const res = await request(app)
+      .get('/api/inbox/jobs/active')
+      .set('x-test-user', 'user-1');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ job: null });
+  });
+});
+
 describe('GET /api/inbox/jobs/:jobId', () => {
   beforeEach(() => {
     vi.mocked(getJob).mockReset();

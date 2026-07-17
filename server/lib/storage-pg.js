@@ -193,6 +193,19 @@ export async function getActiveJob(userId = DEFAULT_USER_ID) {
   return rows[0] ?? null
 }
 
+/** Mark queued/running jobs failed so in-flight workers stop writing. */
+export async function cancelActiveJobs(userId = DEFAULT_USER_ID) {
+  const u = uid(userId)
+  const { rows } = await query(
+    `UPDATE jobs
+     SET status = 'failed', error = 'Cancelled', updated_at = now()
+     WHERE user_id = $1 AND status IN ('queued', 'running')
+     RETURNING *`,
+    [u]
+  )
+  return rows
+}
+
 export async function getJob(id) {
   const { rows } = await query(`SELECT * FROM jobs WHERE id = $1`, [id])
   return rows[0] ?? null
@@ -235,6 +248,7 @@ export async function updateJob(id, patch = {}) {
 
 export async function deleteAllUserData(userId = DEFAULT_USER_ID) {
   const u = uid(userId)
+  await cancelActiveJobs(u)
   await query(`DELETE FROM jobs WHERE user_id = $1`, [u])
   await query(`DELETE FROM classifications WHERE user_id = $1`, [u])
   await query(`DELETE FROM buckets WHERE user_id = $1`, [u])

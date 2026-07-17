@@ -60,6 +60,7 @@ export default function Inbox({ onDisconnect }) {
         open={inbox.panel === 'account'}
         showDeleteConfirm={inbox.showDeleteConfirm}
         deletingData={inbox.deletingData}
+        classifying={inbox.classifying}
         onDisconnect={inbox.handleDisconnect}
         onDeleteClick={inbox.handleDeleteAllData}
         onCancelDelete={() => inbox.setShowDeleteConfirm(false)}
@@ -72,6 +73,12 @@ export default function Inbox({ onDisconnect }) {
         </div>
       )}
 
+      {inbox.notice && (
+        <div className="toast toast-success" role="status" aria-live="polite">
+          {inbox.notice}
+        </div>
+      )}
+
       <main className="inbox-main" id="inbox-main" role="main" aria-label="Email list">
         <Alert message={inbox.error} onDismiss={() => inbox.setError(null)} />
 
@@ -79,7 +86,7 @@ export default function Inbox({ onDisconnect }) {
           <WelcomeHero onStart={inbox.handleFetchAndClassify} classifying={inbox.classifying} />
         )}
 
-        {!showWelcome && (
+        {!showWelcome && !inbox.classifying && (
           <>
             {summaryLine && (
               <p className="inbox-summary" aria-live="polite">
@@ -115,6 +122,12 @@ export default function Inbox({ onDisconnect }) {
               onRefresh={inbox.handleFetchAndClassify}
             />
           </>
+        )}
+
+        {inbox.classifying && summaryLine && (
+          <p className="inbox-summary" aria-live="polite">
+            {summaryLine}
+          </p>
         )}
       </main>
 

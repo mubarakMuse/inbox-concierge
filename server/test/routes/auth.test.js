@@ -11,6 +11,7 @@ vi.mock('../../lib/storage.js', () => ({
   getStoredTokens: vi.fn(),
   clearTokens: vi.fn(),
   deleteAllUserData: vi.fn(),
+  cancelActiveJobs: vi.fn(),
 }));
 vi.mock('../../middleware/userId.js', () => ({
   userIdFromCookie: (req, _res, next) => {
@@ -26,7 +27,7 @@ vi.mock('../../middleware/userId.js', () => ({
 }));
 
 const { getAuthUrl, setCredentialsFromCode, getAuthenticatedClient } = await import('../../lib/auth.js');
-const { getStoredTokens, clearTokens, deleteAllUserData } = await import('../../lib/storage.js');
+const { getStoredTokens, clearTokens, deleteAllUserData, cancelActiveJobs } = await import('../../lib/storage.js');
 const { clearUserIdCookie } = await import('../../middleware/userId.js');
 
 describe('GET /api/auth/url', () => {
@@ -127,6 +128,7 @@ describe('POST /api/auth/disconnect', () => {
 
 describe('POST /api/auth/delete-all-data', () => {
   beforeEach(() => {
+    vi.mocked(cancelActiveJobs).mockResolvedValue([]);
     vi.mocked(deleteAllUserData).mockResolvedValue(undefined);
     vi.mocked(clearTokens).mockResolvedValue(undefined);
   });
@@ -135,6 +137,8 @@ describe('POST /api/auth/delete-all-data', () => {
     const res = await request(app).post('/api/auth/delete-all-data').set('x-test-user', 'user-1');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
+    expect(cancelActiveJobs).toHaveBeenCalledWith('user-1');
+    expect(deleteAllUserData).toHaveBeenCalledWith('user-1');
   });
 
   it('returns 500 when deleteAllUserData throws', async () => {

@@ -14,7 +14,13 @@ export default function Login({ onConnect }) {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('auth') !== 'success') return
+    const auth = params.get('auth')
+    if (auth === 'error') {
+      setAuthError('Google sign-in failed. Try again — if it keeps failing, the API could not save your session.')
+      window.history.replaceState({}, '', '/')
+      return
+    }
+    if (auth !== 'success') return
 
     let cancelled = false
 

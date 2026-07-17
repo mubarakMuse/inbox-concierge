@@ -24,7 +24,7 @@ describe('Login', () => {
 
   it('renders subtitle', () => {
     render(<Login onConnect={() => {}} />)
-    expect(screen.getByText(/stop drowning in email/i)).toBeInTheDocument()
+    expect(screen.getByText(/sorted into clear buckets/i)).toBeInTheDocument()
   })
 
   it('calls getAuthUrl when Connect Gmail is clicked', async () => {

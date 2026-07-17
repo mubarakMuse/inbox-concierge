@@ -19,6 +19,20 @@ export async function getThreads(bucketId) {
   return data
 }
 
+export async function moveThread(threadId, bucketId, reason) {
+  const body = { bucket_id: bucketId }
+  if (reason !== undefined) body.reason = reason
+  const res = await apiFetch(apiUrl(`/inbox/threads/${encodeURIComponent(threadId)}`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  const data = await parseJson(res)
+  if (!res.ok) throwApiError(res, data, 'Failed to move thread')
+  return data
+}
+
 export async function getJob(jobId) {
   const res = await apiFetch(apiUrl(`/inbox/jobs/${encodeURIComponent(jobId)}`), defaultFetchOpts)
   const data = await parseJson(res)

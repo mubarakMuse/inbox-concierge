@@ -99,6 +99,30 @@ export async function saveClassifications(classifications, userId = DEFAULT_USER
   }
 }
 
+export async function updateThreadClassification(threadId, bucketId, reason, userId = DEFAULT_USER_ID) {
+  const u = uid(userId)
+  const reasonText = reason ?? ''
+  await query(
+    `INSERT INTO classifications (user_id, thread_id, bucket_id, reason, updated_at)
+     VALUES ($1, $2, $3, $4, now())
+     ON CONFLICT (user_id, thread_id)
+     DO UPDATE SET bucket_id = EXCLUDED.bucket_id, reason = EXCLUDED.reason, updated_at = now()`,
+    [u, threadId, bucketId, reasonText]
+  )
+  return { thread_id: threadId, bucket_id: bucketId, reason: reasonText }
+}
+
+export async function getLastSortedAt(userId = DEFAULT_USER_ID) {
+  const u = uid(userId)
+  const { rows } = await query(
+    `SELECT MAX(updated_at) AS last_sorted_at FROM classifications WHERE user_id = $1`,
+    [u]
+  )
+  const value = rows[0]?.last_sorted_at
+  if (!value) return null
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
+}
+
 export async function getThreadsCache(userId = DEFAULT_USER_ID) {
   const u = uid(userId)
   const { rows } = await query(

@@ -69,8 +69,7 @@ export default function Login({ onConnect }) {
           <p className="login-eyebrow">Gmail + AI</p>
           <h1 className="login-title">Inbox Concierge</h1>
           <p className="login-subtitle">
-            Stop drowning in email. We fetch your latest threads and sort them into clear buckets —
-            so you open Gmail knowing exactly where to look.
+            Your latest threads, sorted into clear buckets — Important first, the rest in its place.
           </p>
           {authError ? (
             <p className="login-error" role="alert" aria-live="assertive">

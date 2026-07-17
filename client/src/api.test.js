@@ -105,6 +105,25 @@ describe('api', () => {
     });
   });
 
+  describe('moveThread', () => {
+    it('PATCHes thread with bucket_id', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ thread_id: 't1', bucket_id: 'can-wait', reason: '' }),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+      const data = await api.moveThread('t1', 'can-wait');
+      expect(data.bucket_id).toBe('can-wait');
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/inbox/threads/t1'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ bucket_id: 'can-wait' }),
+        })
+      );
+    });
+  });
+
   describe('createBucket', () => {
     it('sends name in body and returns bucket', async () => {
       vi.mocked(fetch).mockResolvedValue({

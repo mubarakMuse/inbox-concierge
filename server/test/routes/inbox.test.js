@@ -8,6 +8,8 @@ vi.mock('../../lib/storage.js', () => ({
   getThreadsCache: vi.fn(),
   saveThreadsCache: vi.fn(),
   saveClassifications: vi.fn(),
+  updateThreadClassification: vi.fn(),
+  getLastSortedAt: vi.fn(),
   createJob: vi.fn(),
   getActiveJob: vi.fn(),
   getJob: vi.fn(),
@@ -35,13 +37,23 @@ vi.mock('../../middleware/requireGmailAuth.js', () => ({
   },
 }));
 
-const { getBuckets, getClassifications, getThreadsCache, createJob, getActiveJob, getJob } = await import('../../lib/storage.js');
+const {
+  getBuckets,
+  getClassifications,
+  getThreadsCache,
+  createJob,
+  getActiveJob,
+  getJob,
+  updateThreadClassification,
+  getLastSortedAt,
+} = await import('../../lib/storage.js');
 const { enqueueJob } = await import('../../lib/queue.js');
 
 describe('GET /api/inbox/buckets', () => {
   beforeEach(() => {
     vi.mocked(getBuckets).mockReset();
     vi.mocked(getClassifications).mockReset();
+    vi.mocked(getLastSortedAt).mockReset().mockResolvedValue(null);
   });
 
   it('returns buckets and counts', async () => {
@@ -54,10 +66,23 @@ describe('GET /api/inbox/buckets', () => {
       t2: { bucket_id: 'important', reason: '' },
       t3: { bucket_id: 'other', reason: '' },
     });
+    vi.mocked(getLastSortedAt).mockResolvedValue('2026-07-17T12:00:00.000Z');
     const res = await request(app).get('/api/inbox/buckets').set('x-test-user', 'user-1');
     expect(res.status).toBe(200);
     expect(res.body.buckets).toHaveLength(2);
     expect(res.body.counts).toEqual({ important: 2, other: 1 });
+    expect(res.body.lastSortedAt).toBe('2026-07-17T12:00:00.000Z');
+  });
+
+  it('returns lastSortedAt null when never sorted', async () => {
+    vi.mocked(getBuckets).mockResolvedValue([
+      { id: 'important', name: 'Important', is_default: true },
+    ]);
+    vi.mocked(getClassifications).mockResolvedValue({});
+    vi.mocked(getLastSortedAt).mockResolvedValue(null);
+    const res = await request(app).get('/api/inbox/buckets').set('x-test-user', 'user-1');
+    expect(res.status).toBe(200);
+    expect(res.body.lastSortedAt).toBeNull();
   });
 
   it('returns 500 when getBuckets throws', async () => {
@@ -65,6 +90,63 @@ describe('GET /api/inbox/buckets', () => {
     const res = await request(app).get('/api/inbox/buckets');
     expect(res.status).toBe(500);
     expect(res.body.error).toBe('DB error');
+  });
+});
+
+describe('PATCH /api/inbox/threads/:threadId', () => {
+  beforeEach(() => {
+    vi.mocked(getBuckets).mockReset();
+    vi.mocked(updateThreadClassification).mockReset();
+  });
+
+  it('upserts classification and returns thread_id, bucket_id, reason', async () => {
+    vi.mocked(getBuckets).mockResolvedValue([
+      { id: 'important', name: 'Important', is_default: true },
+      { id: 'can-wait', name: 'Can wait', is_default: true },
+    ]);
+    vi.mocked(updateThreadClassification).mockResolvedValue({
+      thread_id: 't1',
+      bucket_id: 'can-wait',
+      reason: 'Moved by user',
+    });
+    const res = await request(app)
+      .patch('/api/inbox/threads/t1')
+      .set('x-test-user', 'user-1')
+      .send({ bucket_id: 'can-wait', reason: 'Moved by user' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      thread_id: 't1',
+      bucket_id: 'can-wait',
+      reason: 'Moved by user',
+    });
+    expect(updateThreadClassification).toHaveBeenCalledWith(
+      't1',
+      'can-wait',
+      'Moved by user',
+      'user-1'
+    );
+  });
+
+  it('returns 400 when bucket_id missing', async () => {
+    const res = await request(app)
+      .patch('/api/inbox/threads/t1')
+      .set('x-test-user', 'user-1')
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('bucket_id');
+  });
+
+  it('returns 400 when bucket does not exist for user', async () => {
+    vi.mocked(getBuckets).mockResolvedValue([
+      { id: 'important', name: 'Important', is_default: true },
+    ]);
+    const res = await request(app)
+      .patch('/api/inbox/threads/t1')
+      .set('x-test-user', 'user-1')
+      .send({ bucket_id: 'nope' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Bucket not found');
+    expect(updateThreadClassification).not.toHaveBeenCalled();
   });
 });
 

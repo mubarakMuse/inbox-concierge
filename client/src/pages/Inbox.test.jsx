@@ -12,6 +12,7 @@ vi.mock('../api/index.js', () => ({
   deleteBucket: vi.fn(),
   disconnect: vi.fn(),
   deleteAllMyData: vi.fn(),
+  moveThread: vi.fn(),
 }));
 
 const api = await import('../api/index.js')
@@ -19,13 +20,21 @@ const api = await import('../api/index.js')
 describe('Inbox', () => {
   const defaultBuckets = [
     { id: 'important', name: 'Important', is_default: true },
+    { id: 'can-wait', name: 'Can wait', is_default: true },
+    { id: 'auto-archive', name: 'Auto-archive', is_default: true },
+    { id: 'newsletter', name: 'Newsletter', is_default: true },
     { id: 'other', name: 'Other', is_default: true },
   ];
 
   beforeEach(() => {
-    vi.mocked(api.getBucketsWithCounts).mockResolvedValue({ buckets: defaultBuckets, counts: { important: 2, other: 1 } });
+    vi.mocked(api.getBucketsWithCounts).mockResolvedValue({
+      buckets: defaultBuckets,
+      counts: { important: 2, 'can-wait': 1, 'auto-archive': 0, newsletter: 0, other: 1 },
+      lastSortedAt: '2026-07-17T10:00:00.000Z',
+    });
     vi.mocked(api.getThreads).mockResolvedValue({ threads: [], needClassify: false });
     vi.mocked(api.disconnect).mockResolvedValue(undefined);
+    vi.mocked(api.moveThread).mockResolvedValue({ thread_id: 't1', bucket_id: 'can-wait', reason: '' });
   });
 
   it('renders bucket bar and main area', async () => {
@@ -34,7 +43,9 @@ describe('Inbox', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /inbox concierge/i })).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /disconnect gmail/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh and reclassify inbox/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^buckets$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByRole('main', { name: /email list/i })).toBeInTheDocument();
   });
 
@@ -44,6 +55,13 @@ describe('Inbox', () => {
       expect(screen.getByRole('button', { name: /Important.*2 emails/i })).toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: /Other.*1 emails/i })).toBeInTheDocument();
+  });
+
+  it('shows summary line when classified', async () => {
+    render(<Inbox onDisconnect={() => {}} />);
+    await waitFor(() => {
+      expect(screen.getByText(/2 need you · 1 can wait · 1 noise/i)).toBeInTheDocument();
+    });
   });
 
   it('shows threads when loaded', async () => {
@@ -58,6 +76,10 @@ describe('Inbox', () => {
       expect(screen.getByText('Hello')).toBeInTheDocument();
     });
     expect(screen.getByText('Snippet one')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open in gmail/i })).toHaveAttribute(
+      'href',
+      'https://mail.google.com/mail/u/0/#inbox/t1'
+    );
   });
 
   it('decodes HTML entities in subject and snippet', async () => {
@@ -75,13 +97,13 @@ describe('Inbox', () => {
   });
 
   it('shows needClassify alert when needClassify is true', async () => {
-    vi.mocked(api.getBucketsWithCounts).mockResolvedValue({ buckets: defaultBuckets, counts: {} });
+    vi.mocked(api.getBucketsWithCounts).mockResolvedValue({ buckets: defaultBuckets, counts: {}, lastSortedAt: null });
     vi.mocked(api.getThreads).mockResolvedValue({ threads: [], needClassify: true });
     render(<Inbox onDisconnect={() => {}} />);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /fetch and classify emails/i })).toBeInTheDocument();
     });
-    expect(screen.getByText(/emails not classified yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/ready when you are/i)).toBeInTheDocument();
   });
 
   it('shows error and dismiss button when load fails', async () => {
@@ -96,9 +118,13 @@ describe('Inbox', () => {
     });
   });
 
-  it('calls onDisconnect when disconnect is clicked', async () => {
+  it('calls onDisconnect when disconnect is clicked from Account', async () => {
     const onDisconnect = vi.fn();
     render(<Inbox onDisconnect={onDisconnect} />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^account$/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^account$/i }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /disconnect gmail/i })).toBeInTheDocument();
     });
@@ -111,12 +137,12 @@ describe('Inbox', () => {
 
   it('shows add bucket form and submits new bucket name', async () => {
     vi.mocked(api.createBucket).mockResolvedValue({ id: 'my-bucket', name: 'My Bucket', is_default: false })
-    vi.mocked(api.getBucketsWithCounts).mockResolvedValueOnce({ buckets: defaultBuckets, counts: {} })
+    vi.mocked(api.getBucketsWithCounts).mockResolvedValueOnce({ buckets: defaultBuckets, counts: {}, lastSortedAt: null })
     render(<Inbox onDisconnect={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^manage$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^buckets$/i })).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: /^manage$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^buckets$/i }))
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/new bucket name/i)).toBeInTheDocument()
     })
@@ -141,14 +167,29 @@ describe('Inbox', () => {
     })
   })
 
+  it('moves thread when wrong-bucket chip is clicked', async () => {
+    vi.mocked(api.getThreads).mockResolvedValue({
+      threads: [{ id: 't1', subject: 'Move me', snippet: 'x', reason: 'Maybe important' }],
+      needClassify: false,
+    })
+    render(<Inbox onDisconnect={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByText('Move me')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /move to wait/i }))
+    await waitFor(() => {
+      expect(api.moveThread).toHaveBeenCalledWith('t1', 'can-wait')
+    })
+  })
+
   it('shows delete all data link and confirm flow', async () => {
     vi.mocked(api.deleteAllMyData).mockResolvedValue({})
     const onDisconnect = vi.fn()
     render(<Inbox onDisconnect={onDisconnect} />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^manage$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^account$/i })).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: /^manage$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^account$/i }))
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /delete all my data/i })).toBeInTheDocument()
     })

@@ -9,15 +9,15 @@ export default function WelcomeHero({ onStart, classifying }) {
         <div className="welcome-orbit welcome-orbit-3">🕐</div>
         <div className="welcome-core">✉</div>
       </div>
-      <h2 id="welcome-title" className="welcome-title">Your inbox, untangled</h2>
+      <h2 id="welcome-title" className="welcome-title">Ready when you are</h2>
       <p className="welcome-text">
-        Emails not classified yet. We&apos;ll fetch your latest 200 Gmail threads and sort them into
-        smart buckets — so you see what matters first.
+        We&apos;ll fetch your latest 200 Gmail threads and sort them into calm buckets —
+        Important first, everything else in its place.
       </p>
       <ul className="welcome-steps">
         <li><span>1</span> Fetch recent threads from Gmail</li>
         <li><span>2</span> AI reads subject + snippet</li>
-        <li><span>3</span> Browse by bucket instantly</li>
+        <li><span>3</span> Land on what needs you</li>
       </ul>
       <Button
         variant="primary"

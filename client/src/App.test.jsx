@@ -5,7 +5,7 @@ import App from './App.jsx';
 
 vi.mock('./api/index.js', () => ({
   getAuthStatus: vi.fn(),
-  getBucketsWithCounts: vi.fn().mockResolvedValue({ buckets: [], counts: {} }),
+  getBucketsWithCounts: vi.fn().mockResolvedValue({ buckets: [], counts: {}, lastSortedAt: null }),
   getThreads: vi.fn().mockResolvedValue({ threads: [], needClassify: false }),
   disconnect: vi.fn().mockResolvedValue(undefined),
   deleteAllMyData: vi.fn(),
@@ -14,6 +14,7 @@ vi.mock('./api/index.js', () => ({
   getAuthUrl: vi.fn(),
   classifyWithProgress: vi.fn(),
   recategorize: vi.fn(),
+  moveThread: vi.fn(),
 }));
 
 const { getAuthStatus } = await import('./api/index.js')
@@ -55,6 +56,10 @@ describe('App', () => {
   it('shows Login again after disconnect from inbox', async () => {
     vi.mocked(getAuthStatus).mockResolvedValue({ connected: true });
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^account$/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^account$/i }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /disconnect gmail/i })).toBeInTheDocument();
     });

@@ -7,6 +7,16 @@ resource "aws_db_subnet_group" "main" {
   }
 }
 
+resource "aws_db_subnet_group" "public" {
+  count      = var.db_publicly_accessible ? 1 : 0
+  name       = "${var.project_name}-db-public"
+  subnet_ids = aws_subnet.public[*].id
+
+  tags = {
+    Name = "${var.project_name}-db-subnet-public"
+  }
+}
+
 resource "aws_db_instance" "main" {
   identifier = "${var.project_name}-pg"
 
@@ -22,9 +32,10 @@ resource "aws_db_instance" "main" {
   username = var.db_username
   password = var.db_password
 
-  db_subnet_group_name   = aws_db_subnet_group.main.name
+  db_subnet_group_name   = var.db_publicly_accessible ? aws_db_subnet_group.public[0].name : aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
   publicly_accessible    = var.db_publicly_accessible
+  apply_immediately      = var.db_publicly_accessible
   multi_az               = false
 
   backup_retention_period = 7
@@ -37,5 +48,7 @@ resource "aws_db_instance" "main" {
 }
 
 locals {
-  database_url = "postgresql://${var.db_username}:${urlencode(var.db_password)}@${aws_db_instance.main.address}:5432/${var.db_name}?sslmode=require"
+  # Do not set sslmode=require — pg@8.22+ maps it to verify-full and breaks RDS.
+  # App sets ssl via DATABASE_SSL=true + rejectUnauthorized:false in db.js.
+  database_url = "postgresql://${var.db_username}:${urlencode(var.db_password)}@${aws_db_instance.main.address}:5432/${var.db_name}"
 }

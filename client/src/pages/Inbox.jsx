@@ -2,23 +2,36 @@ import AppHeader from '../components/layout/AppHeader.jsx'
 import BucketBar from '../components/inbox/BucketBar.jsx'
 import WelcomeHero from '../components/inbox/WelcomeHero.jsx'
 import ClassifyExperience from '../components/inbox/ClassifyExperience.jsx'
-import ManagePanel from '../components/inbox/ManagePanel.jsx'
+import BucketsPanel from '../components/inbox/BucketsPanel.jsx'
+import AccountPanel from '../components/inbox/AccountPanel.jsx'
 import ThreadList from '../components/inbox/ThreadList.jsx'
 import { Alert } from '../components/ui/index.js'
 import { useInbox } from '../hooks/useInbox.js'
 import { getBucketMeta } from '../utils/buckets.js'
 
+const buildSummaryLine = (counts) => {
+  const importantCount = counts.important ?? 0
+  const canWaitCount = counts['can-wait'] ?? 0
+  const noiseCount =
+    (counts['auto-archive'] ?? 0) + (counts.newsletter ?? 0) + (counts.other ?? 0)
+  return `${importantCount} need you · ${canWaitCount} can wait · ${noiseCount} noise`
+}
+
 export default function Inbox({ onDisconnect }) {
   const inbox = useInbox(onDisconnect)
   const showWelcome = inbox.needClassify && !inbox.classifying
   const meta = inbox.selectedBucket ? getBucketMeta(inbox.selectedBucket) : null
+  const summaryLine = !inbox.needClassify ? buildSummaryLine(inbox.counts) : null
 
   return (
     <div className="app-shell">
       <AppHeader
-        onDisconnect={inbox.handleDisconnect}
-        onManageToggle={() => inbox.setManageOpen((o) => !o)}
-        manageOpen={inbox.manageOpen}
+        lastSortedAt={inbox.lastSortedAt}
+        classifying={inbox.classifying}
+        panel={inbox.panel}
+        onRefresh={inbox.handleFetchAndClassify}
+        onBucketsToggle={() => inbox.handleTogglePanel('buckets')}
+        onAccountToggle={() => inbox.handleTogglePanel('account')}
       />
 
       <BucketBar
@@ -29,22 +42,25 @@ export default function Inbox({ onDisconnect }) {
         onSelect={inbox.setSelectedBucketId}
       />
 
-      <ManagePanel
-        open={inbox.manageOpen}
+      <BucketsPanel
+        open={inbox.panel === 'buckets'}
         buckets={inbox.buckets}
         needClassify={inbox.needClassify}
         classifying={inbox.classifying}
-        progress={inbox.progress}
         newBucketName={inbox.newBucketName}
         creatingBucket={inbox.creatingBucket}
         removingBucketId={inbox.removingBucketId}
-        showDeleteConfirm={inbox.showDeleteConfirm}
-        deletingData={inbox.deletingData}
         onNewBucketNameChange={inbox.setNewBucketName}
         onCreateBucket={inbox.handleCreateBucket}
-        onFetchAndClassify={inbox.handleFetchAndClassify}
-        onRecategorize={inbox.handleRecategorize}
         onRemoveBucket={inbox.handleRemoveBucket}
+        onRecategorize={inbox.handleRecategorize}
+      />
+
+      <AccountPanel
+        open={inbox.panel === 'account'}
+        showDeleteConfirm={inbox.showDeleteConfirm}
+        deletingData={inbox.deletingData}
+        onDisconnect={inbox.handleDisconnect}
         onDeleteClick={inbox.handleDeleteAllData}
         onCancelDelete={() => inbox.setShowDeleteConfirm(false)}
         onConfirmDelete={inbox.handleDeleteAllData}
@@ -52,7 +68,7 @@ export default function Inbox({ onDisconnect }) {
 
       {inbox.classifyComplete && (
         <div className="toast toast-success" role="status" aria-live="polite">
-          ✓ Inbox sorted — browse your buckets above
+          ✓ Inbox sorted — Important first
         </div>
       )}
 
@@ -65,6 +81,12 @@ export default function Inbox({ onDisconnect }) {
 
         {!showWelcome && (
           <>
+            {summaryLine && (
+              <p className="inbox-summary" aria-live="polite">
+                {summaryLine}
+              </p>
+            )}
+
             <header className="inbox-main-header">
               {meta && (
                 <span className="inbox-bucket-icon" style={{ background: meta.bg, color: meta.color }} aria-hidden="true">
@@ -85,6 +107,12 @@ export default function Inbox({ onDisconnect }) {
               needClassify={inbox.needClassify}
               loading={inbox.loading}
               selectedBucket={inbox.selectedBucket}
+              selectedBucketId={inbox.selectedBucketId}
+              buckets={inbox.buckets}
+              onMoveThread={inbox.handleMoveThread}
+              movingThreadId={inbox.movingThreadId}
+              onBrowseCanWait={() => inbox.setSelectedBucketId('can-wait')}
+              onRefresh={inbox.handleFetchAndClassify}
             />
           </>
         )}

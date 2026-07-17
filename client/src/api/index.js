@@ -3,6 +3,7 @@ export { createBucket, deleteBucket } from './buckets.js'
 export {
   getBucketsWithCounts,
   getThreads,
+  moveThread,
   getJob,
   classifyWithProgress,
   recategorize,

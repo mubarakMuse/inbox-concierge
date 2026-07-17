@@ -10,6 +10,8 @@ import {
   createJob,
   getJob,
   getActiveJob,
+  updateThreadClassification,
+  getLastSortedAt,
 } from '../lib/storage.js';
 import { enqueueJob } from '../lib/queue.js';
 import { logger } from '../lib/logger.js';
@@ -34,12 +36,40 @@ inboxRouter.get('/buckets', async (req, res) => {
     const userId = req.userId;
     const buckets = await getBuckets(userId);
     const classifications = await getClassifications(userId);
+    const lastSortedAt = await getLastSortedAt(userId);
     const counts = {};
     buckets.forEach((b) => (counts[b.id] = 0));
     Object.values(classifications).forEach((c) => {
       if (counts[c.bucket_id] !== undefined) counts[c.bucket_id]++;
     });
-    res.json({ buckets, counts });
+    res.json({ buckets, counts, lastSortedAt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+inboxRouter.patch('/threads/:threadId', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { threadId } = req.params;
+    const bucketId = req.body?.bucket_id;
+    const reason = req.body?.reason;
+
+    if (!threadId || typeof threadId !== 'string') {
+      return res.status(400).json({ error: 'threadId is required' });
+    }
+    if (!bucketId || typeof bucketId !== 'string') {
+      return res.status(400).json({ error: 'bucket_id is required' });
+    }
+
+    const buckets = await getBuckets(userId);
+    const bucketExists = buckets.some((b) => b.id === bucketId);
+    if (!bucketExists) {
+      return res.status(400).json({ error: 'Bucket not found' });
+    }
+
+    const updated = await updateThreadClassification(threadId, bucketId, reason, userId);
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

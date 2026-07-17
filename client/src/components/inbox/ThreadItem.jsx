@@ -1,27 +1,80 @@
 import { decodeHtmlEntities } from '../../utils/decodeHtml.js'
 
-export default function ThreadItem({ thread, bucketMeta }) {
+const MOVE_TARGETS = [
+  { id: 'important', label: 'Important' },
+  { id: 'can-wait', label: 'Wait' },
+  { id: 'auto-archive', label: 'Archive' },
+  { id: 'newsletter', label: 'Newsletter' },
+  { id: 'other', label: 'Other' },
+]
+
+export default function ThreadItem({
+  thread,
+  bucketMeta,
+  currentBucketId,
+  buckets,
+  onMoveThread,
+  moving,
+}) {
   const reason = thread.reason ? decodeHtmlEntities(thread.reason) : null
+  const fallbackReason = bucketMeta
+    ? `Sorted into ${bucketMeta.label}`
+    : 'Sorted by AI'
+  const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(thread.id)}`
+
+  const moveOptions = MOVE_TARGETS.filter((target) => {
+    if (target.id === currentBucketId) return false
+    return !buckets?.length || buckets.some((b) => b.id === target.id)
+  })
+
+  const handleMove = (bucketId) => {
+    if (moving || !onMoveThread) return
+    onMoveThread(thread.id, bucketId)
+  }
+
+  const handleMoveKeyDown = (e, bucketId) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleMove(bucketId)
+    }
+  }
 
   return (
     <article className="thread-card" role="listitem">
-      <div className="thread-card-top">
-        <h3 className="thread-subject">{decodeHtmlEntities(thread.subject)}</h3>
-        {reason && (
-          <span className="thread-reason-badge" title={reason}>
-            {reason}
-          </span>
-        )}
-      </div>
+      <p className="thread-reason">{reason || fallbackReason}</p>
+      <h3 className="thread-subject">{decodeHtmlEntities(thread.subject)}</h3>
       <p className="thread-snippet">{decodeHtmlEntities(thread.snippet)}</p>
-      {bucketMeta && (
-        <span
-          className="thread-bucket-tag"
-          style={{ '--tag-color': bucketMeta.color, '--tag-bg': bucketMeta.bg }}
+
+      <div className="thread-actions">
+        <div className="thread-move" role="group" aria-label="Wrong bucket?">
+          <span className="thread-move-label">Wrong bucket?</span>
+          <div className="thread-move-chips">
+            {moveOptions.map((target) => (
+              <button
+                key={target.id}
+                type="button"
+                className="thread-move-chip"
+                onClick={() => handleMove(target.id)}
+                onKeyDown={(e) => handleMoveKeyDown(e, target.id)}
+                disabled={moving}
+                tabIndex={0}
+                aria-label={`Move to ${target.label}`}
+              >
+                {target.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <a
+          className="thread-gmail-link"
+          href={gmailUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open in Gmail"
         >
-          {bucketMeta.icon} {bucketMeta.label}
-        </span>
-      )}
+          Open in Gmail
+        </a>
+      </div>
     </article>
   )
 }

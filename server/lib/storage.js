@@ -5,6 +5,8 @@ export {
   removeBucket,
   getClassifications,
   saveClassifications,
+  updateThreadClassification,
+  getLastSortedAt,
   getThreadsCache,
   saveThreadsCache,
   getStoredTokens,

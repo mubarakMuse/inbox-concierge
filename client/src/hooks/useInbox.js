@@ -8,6 +8,7 @@ import {
   deleteBucket,
   disconnect,
   deleteAllMyData,
+  moveThread,
 } from '../api/index.js'
 import { slugify } from '../utils/slugify.js'
 
@@ -31,18 +32,26 @@ export function useInbox(onDisconnect) {
   const [newBucketName, setNewBucketName] = useState('')
   const [creatingBucket, setCreatingBucket] = useState(false)
   const [error, setError] = useState(null)
-  const [manageOpen, setManageOpen] = useState(false)
+  const [panel, setPanel] = useState(null)
   const [classifyComplete, setClassifyComplete] = useState(false)
   const [removingBucketId, setRemovingBucketId] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletingData, setDeletingData] = useState(false)
+  const [lastSortedAt, setLastSortedAt] = useState(null)
+  const [movingThreadId, setMovingThreadId] = useState(null)
 
   const loadBuckets = useCallback(async () => {
     try {
       const data = await getBucketsWithCounts()
       setBuckets(data.buckets)
       setCounts(data.counts || {})
-      setSelectedBucketId((current) => current || data.buckets?.[0]?.id || null)
+      setLastSortedAt(data.lastSortedAt ?? null)
+      setSelectedBucketId((current) => {
+        if (current) return current
+        const hasImportant = data.buckets?.some((b) => b.id === 'important')
+        if (hasImportant) return 'important'
+        return data.buckets?.[0]?.id || null
+      })
     } catch (err) {
       if (!handleAuthError(err, onDisconnect)) setError(err.message)
     }
@@ -77,42 +86,46 @@ export function useInbox(onDisconnect) {
   }, [loadBuckets, loadThreads])
 
   const handleFetchAndClassify = useCallback(() => {
-    const bucketId = selectedBucketId
     setClassifying(true)
     setProgress({ done: 0, total: 200 })
     setError(null)
+    setPanel(null)
 
     classifyWithProgress(
       (payload) => {
         setProgress({ done: payload.done ?? 0, total: payload.total ?? 200 })
-        refreshBucketView(bucketId)
+        refreshBucketView('important')
       },
       () => {
         setNeedClassify(false)
+        setSelectedBucketId('important')
         setClassifyComplete(true)
         setTimeout(() => setClassifyComplete(false), 4000)
-        refreshBucketView(bucketId).finally(() => setClassifying(false))
+        refreshBucketView('important').finally(() => setClassifying(false))
       },
       (message, status) => {
         if (status === 401) onDisconnect()
         else setError(message || 'Classification failed')
         setClassifying(false)
-      }
+      },
+      { forceRefresh: true }
     )
-  }, [onDisconnect, refreshBucketView, selectedBucketId])
+  }, [onDisconnect, refreshBucketView])
 
   const handleRecategorize = useCallback(async () => {
     setClassifying(true)
     setError(null)
+    setPanel(null)
     try {
       await recategorize()
-      await refreshBucketView(selectedBucketId)
+      setSelectedBucketId('important')
+      await refreshBucketView('important')
     } catch (err) {
       if (!handleAuthError(err, onDisconnect)) setError(err.message)
     } finally {
       setClassifying(false)
     }
-  }, [onDisconnect, refreshBucketView, selectedBucketId])
+  }, [onDisconnect, refreshBucketView])
 
   const handleCreateBucket = useCallback(async (e) => {
     e.preventDefault()
@@ -174,6 +187,46 @@ export function useInbox(onDisconnect) {
     }
   }, [onDisconnect, refreshBucketView, selectedBucketId])
 
+  const handleMoveThread = useCallback(async (threadId, bucketId) => {
+    if (!threadId || !bucketId) return
+    const previousThreads = threads
+    const previousCounts = counts
+    const fromBucketId = selectedBucketId
+
+    setMovingThreadId(threadId)
+    setError(null)
+
+    setThreads((current) => current.filter((t) => t.id !== threadId))
+    setCounts((current) => {
+      const next = { ...current }
+      if (fromBucketId && next[fromBucketId] !== undefined) {
+        next[fromBucketId] = Math.max(0, (next[fromBucketId] || 0) - 1)
+      }
+      if (next[bucketId] !== undefined) {
+        next[bucketId] = (next[bucketId] || 0) + 1
+      } else {
+        next[bucketId] = 1
+      }
+      return next
+    })
+
+    try {
+      await moveThread(threadId, bucketId)
+      await refreshBucketView(selectedBucketId)
+    } catch (err) {
+      setThreads(previousThreads)
+      setCounts(previousCounts)
+      if (!handleAuthError(err, onDisconnect)) setError(err.message)
+    } finally {
+      setMovingThreadId(null)
+    }
+  }, [counts, onDisconnect, refreshBucketView, selectedBucketId, threads])
+
+  const handleTogglePanel = useCallback((nextPanel) => {
+    setPanel((current) => (current === nextPanel ? null : nextPanel))
+    if (nextPanel !== 'account') setShowDeleteConfirm(false)
+  }, [])
+
   const selectedBucket = buckets.find((b) => b.id === selectedBucketId)
 
   return {
@@ -189,14 +242,16 @@ export function useInbox(onDisconnect) {
     newBucketName,
     creatingBucket,
     error,
-    manageOpen,
+    panel,
     classifyComplete,
     removingBucketId,
     showDeleteConfirm,
     deletingData,
+    lastSortedAt,
+    movingThreadId,
     setError,
     setNewBucketName,
-    setManageOpen,
+    setPanel,
     setShowDeleteConfirm,
     setSelectedBucketId,
     handleFetchAndClassify,
@@ -205,5 +260,7 @@ export function useInbox(onDisconnect) {
     handleDisconnect,
     handleDeleteAllData,
     handleRemoveBucket,
+    handleMoveThread,
+    handleTogglePanel,
   }
 }
